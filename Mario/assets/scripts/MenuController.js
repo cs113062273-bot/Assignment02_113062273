@@ -4,11 +4,15 @@ cc.Class({
     extends: cc.Component,
 
     properties: {
+        homeBackgroundNode: cc.Node,
         titleNode: cc.Node,
         loginButtonNode: cc.Node,
         signupButtonNode: cc.Node,
         loginPopup: cc.Node,
         signupPopup: cc.Node,
+        stageSelectLayer: cc.Node,
+        loadingLayer: cc.Node,
+        stageSelectUserLabel: cc.Label,
         loginUsernameInput: cc.EditBox,
         loginPasswordInput: cc.EditBox,
         signupEmailInput: cc.EditBox,
@@ -22,7 +26,10 @@ cc.Class({
     },
 
     onLoad() {
+        this.currentSession = this.readSession();
         this.hideAllPopups();
+        this.setStageSelectVisible(false);
+        this.setLoadingVisible(false);
         this.showLoginMessage('');
         this.showSignupMessage('');
         this.preloadNextScene();
@@ -58,7 +65,43 @@ cc.Class({
         }
     },
 
+    setStageSelectVisible(visible) {
+        if (this.stageSelectLayer) {
+            this.stageSelectLayer.active = visible;
+        }
+    },
+
+    setLoadingVisible(visible) {
+        if (this.loadingLayer) {
+            this.loadingLayer.active = visible;
+        }
+    },
+
+    readSession() {
+        const raw = cc.sys.localStorage.getItem('mario-auth');
+        if (!raw) {
+            return null;
+        }
+
+        try {
+            return JSON.parse(raw);
+        } catch (error) {
+            return null;
+        }
+    },
+
+    updateStageSelectUser(session) {
+        if (!this.stageSelectUserLabel) {
+            return;
+        }
+
+        const username = session && session.username ? String(session.username).toUpperCase() : 'GUEST';
+        this.stageSelectUserLabel.string = 'USER: ' + username;
+    },
+
     onClickLogin() {
+        this.setStageSelectVisible(false);
+        this.setLoadingVisible(false);
         this.hideAllPopups();
         this.showLoginMessage('');
         this.setHomeVisible(false);
@@ -68,6 +111,8 @@ cc.Class({
     },
 
     onClickSignup() {
+        this.setStageSelectVisible(false);
+        this.setLoadingVisible(false);
         this.hideAllPopups();
         this.showSignupMessage('');
         this.setHomeVisible(false);
@@ -103,10 +148,24 @@ cc.Class({
             return;
         }
 
+        this.currentSession = session;
         cc.sys.localStorage.setItem('mario-auth', JSON.stringify(session));
     },
 
     gotoNextScene() {
+        if (this.stageSelectLayer) {
+            this.hideAllPopups();
+            this.setHomeVisible(false);
+            this.setLoadingVisible(true);
+
+            this.scheduleOnce(function () {
+                this.setLoadingVisible(false);
+                this.setStageSelectVisible(true);
+                this.updateStageSelectUser(this.currentSession);
+            }, 0.45);
+            return;
+        }
+
         cc.director.loadScene(this.nextScene);
     },
 
