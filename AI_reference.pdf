@@ -1,0 +1,76 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 1386 >>
+stream
+BT
+/F1 11 Tf
+50 760 Td
+(AI Reference) Tj
+0 -16 Td
+(Tool: GPT-5 Codex) Tj
+0 -16 Td
+(Project: Mario \(Cocos Creator 2.4.8\)) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(AI-assisted files and ranges:) Tj
+0 -16 Td
+(- Mario/assets/scripts/Game.js lines 1-1247) Tj
+0 -16 Td
+(- Mario/assets/game.fire lines 1-178) Tj
+0 -16 Td
+(- Mario/settings/project.json lines 1-19) Tj
+0 -16 Td
+(- README.md lines 1-78) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Prompt 1:) Tj
+0 -16 Td
+(?? C:\Users\chinh\Desktop\Assignment02_113062273\matio.md?? cocos creator ?????????) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Prompt 2:) Tj
+0 -16 Td
+(???????? cocos creator ???????? C:\Users\chinh\Desktop\Assignment02_113062273\Mario????? C:\Users\chinh\Desktop\Assignment02_113062273\AS2_source\AS2_source ????? C:\Users\chinh\Desktop\Assignment02_113062273\matio.md ???) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(AI output summary:) Tj
+0 -16 Td
+(Built a Cocos Creator project scene and a gameplay controller implementing start menu, level select, one playable stage, Goomba enemies, question blocks, Super Mushroom, score, timer, lives, camera follow, stage clear, game over, and audio.) Tj
+0 -16 Td
+() Tj
+0 -16 Td
+(Refinement and explanation:) Tj
+0 -16 Td
+(The final version uses one dynamic scene, loads provided assets from AS2_source, and includes Graphics-based fallbacks so the project remains editable even before Creator finishes re-importing copied resources.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001678 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1748
+%%EOF
