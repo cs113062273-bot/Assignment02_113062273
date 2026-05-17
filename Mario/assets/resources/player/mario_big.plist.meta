@@ -11,7 +11,7 @@
   "subMetas": {
     "mario_big_0.png": {
       "ver": "1.0.6",
-      "uuid": "7056e3e2-6a88-4c20-bc8b-59a2e04c89be",
+      "uuid": "76692953-6f7d-4850-b9fb-067081c9091d",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -34,7 +34,7 @@
     },
     "mario_big_1.png": {
       "ver": "1.0.6",
-      "uuid": "c17976b9-afb2-4cf2-bcec-36f522d5c509",
+      "uuid": "0a3414d3-dded-4dec-91ef-c20e27cb1cc5",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -57,7 +57,7 @@
     },
     "mario_big_10.png": {
       "ver": "1.0.6",
-      "uuid": "f11ed67a-fe45-47ee-b435-1615dc605e88",
+      "uuid": "d75a3684-1cb4-4bd5-ad5d-c27bb0faa242",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -80,7 +80,7 @@
     },
     "mario_big_11.png": {
       "ver": "1.0.6",
-      "uuid": "5b087c5c-ff7e-4c61-9660-d2dd0ce65878",
+      "uuid": "473f6875-c8d2-4d85-ac7a-4983e7c7c2e9",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -103,7 +103,7 @@
     },
     "mario_big_12.png": {
       "ver": "1.0.6",
-      "uuid": "977a0888-28f4-41ba-92e4-cf444571bb88",
+      "uuid": "6d7d1588-91be-453b-b34b-834ae280f244",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -126,7 +126,7 @@
     },
     "mario_big_13.png": {
       "ver": "1.0.6",
-      "uuid": "62b2b697-cc66-49c7-91c2-853079e15a36",
+      "uuid": "1fe8df29-fcb2-437c-b649-0f778e220007",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -149,7 +149,7 @@
     },
     "mario_big_14.png": {
       "ver": "1.0.6",
-      "uuid": "28acd922-074a-41e6-82de-c3d8a74dfd6f",
+      "uuid": "cf1cee0a-e0c9-4891-92ac-748b0aae1f32",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -172,7 +172,7 @@
     },
     "mario_big_15.png": {
       "ver": "1.0.6",
-      "uuid": "c51e758a-6ecc-4a48-8a80-268fe13b4f7a",
+      "uuid": "98b60406-de9c-4e0e-ba49-5d41b6df832d",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -195,7 +195,7 @@
     },
     "mario_big_16.png": {
       "ver": "1.0.6",
-      "uuid": "2cc851d2-0d5b-4b93-9b35-afcb4fc98730",
+      "uuid": "56a51ec6-e072-4e26-b775-85a96f6e2388",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -218,7 +218,7 @@
     },
     "mario_big_17.png": {
       "ver": "1.0.6",
-      "uuid": "91cb7444-49c2-482e-808b-b50734699227",
+      "uuid": "02c2a3de-26ac-4ff8-b075-60b1a00f81ac",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -241,7 +241,7 @@
     },
     "mario_big_18.png": {
       "ver": "1.0.6",
-      "uuid": "bbee9cce-8a8a-4fc4-8161-f01b996a92fd",
+      "uuid": "94afbf00-3625-4cee-86ac-fe8d77c629d0",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -264,7 +264,7 @@
     },
     "mario_big_19.png": {
       "ver": "1.0.6",
-      "uuid": "bf1fb71a-064b-4e45-b6f3-1b26330d6eb1",
+      "uuid": "57630936-c6e9-4ab0-a3ff-336652b1b87a",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -287,7 +287,7 @@
     },
     "mario_big_2.png": {
       "ver": "1.0.6",
-      "uuid": "4edea944-a1a9-4aae-b15f-6451cf19c1c9",
+      "uuid": "dcb8c994-5fe7-4e8b-8b1b-6db102fbaeb7",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -310,7 +310,7 @@
     },
     "mario_big_20.png": {
       "ver": "1.0.6",
-      "uuid": "99c613c8-f700-48a6-b35e-048795ce9bbc",
+      "uuid": "a2e44734-d15f-49c1-a84a-89c64827264f",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -333,7 +333,7 @@
     },
     "mario_big_21.png": {
       "ver": "1.0.6",
-      "uuid": "58341672-6f4d-4c41-a16c-513453945041",
+      "uuid": "4d5d531e-1bfe-4038-bec3-ef9edcb76875",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -356,7 +356,7 @@
     },
     "mario_big_22.png": {
       "ver": "1.0.6",
-      "uuid": "90678623-dc2d-4c4e-b343-63eb57f9fded",
+      "uuid": "38795f9d-6fc5-4f41-b1f0-deea22c1a53e",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -379,7 +379,7 @@
     },
     "mario_big_23.png": {
       "ver": "1.0.6",
-      "uuid": "52d3123e-0425-4506-94d3-2aa631b5a580",
+      "uuid": "2da6e1f9-94ce-428b-80d4-45023ceb3215",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -402,7 +402,7 @@
     },
     "mario_big_24.png": {
       "ver": "1.0.6",
-      "uuid": "793241ae-666f-4c0a-8c5e-97abc0f632d8",
+      "uuid": "d15f2188-a7e3-46b4-a0d3-637fe11817e5",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -425,7 +425,7 @@
     },
     "mario_big_25.png": {
       "ver": "1.0.6",
-      "uuid": "93d1e88d-bb26-4b3b-beaa-bea9fa73cd82",
+      "uuid": "92bf5e93-2cf1-44dc-9a7f-09e96be6c739",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -448,7 +448,7 @@
     },
     "mario_big_26.png": {
       "ver": "1.0.6",
-      "uuid": "2085553b-6457-449d-87c9-5adcf354e04e",
+      "uuid": "0a242791-cf24-4e62-8e16-60f3b79951a9",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -471,7 +471,7 @@
     },
     "mario_big_27.png": {
       "ver": "1.0.6",
-      "uuid": "0ae1ae4c-4307-4dc9-99bb-a76f8bdea3a7",
+      "uuid": "93c2c273-5b26-44d5-850a-be038fc5bd5a",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -494,7 +494,7 @@
     },
     "mario_big_28.png": {
       "ver": "1.0.6",
-      "uuid": "40616662-7e7f-4403-9fe0-6ae08e5a551e",
+      "uuid": "a3e54c1f-3c7a-4a15-b15c-4317e3a6268d",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -517,7 +517,7 @@
     },
     "mario_big_29.png": {
       "ver": "1.0.6",
-      "uuid": "d2ee43e9-860b-4823-ac19-dd2191bb9e49",
+      "uuid": "6f2a882d-9e06-4620-a090-fc287cce56f0",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -540,7 +540,7 @@
     },
     "mario_big_3.png": {
       "ver": "1.0.6",
-      "uuid": "032d5c48-1b2c-4e18-a15a-1565763ea956",
+      "uuid": "d017d877-16a4-4b74-94ae-e2cec5eee148",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -563,7 +563,7 @@
     },
     "mario_big_30.png": {
       "ver": "1.0.6",
-      "uuid": "0ba06d8e-eabd-4ee1-a797-5b159376126b",
+      "uuid": "3df59455-5b5f-4c8c-9336-2c03be6c0efb",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -586,7 +586,7 @@
     },
     "mario_big_31.png": {
       "ver": "1.0.6",
-      "uuid": "007ac3c0-0e7f-41de-a2a0-de1b511940b4",
+      "uuid": "5403dc08-7d4e-43c0-af9e-8e4f94375ba4",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -609,7 +609,7 @@
     },
     "mario_big_32.png": {
       "ver": "1.0.6",
-      "uuid": "91e7c2cc-312b-4902-b7f5-d288f759af42",
+      "uuid": "900c3274-ad52-4baf-9404-195101f69c1f",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -632,7 +632,7 @@
     },
     "mario_big_33.png": {
       "ver": "1.0.6",
-      "uuid": "6aa53ae1-5d6f-4209-8fae-a5e487abde3c",
+      "uuid": "c70565a8-0c94-4c1a-ab85-6828b01c9cb7",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -655,7 +655,7 @@
     },
     "mario_big_34.png": {
       "ver": "1.0.6",
-      "uuid": "43578e79-7262-4258-9749-ca01d797225f",
+      "uuid": "4476b8f9-63c4-4519-93af-8f95695b06db",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -678,7 +678,7 @@
     },
     "mario_big_35.png": {
       "ver": "1.0.6",
-      "uuid": "c1c0ae5c-27e6-4730-a7e9-abc08aea5458",
+      "uuid": "400c233a-f741-4eae-9c75-6fdc0836f656",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -701,7 +701,7 @@
     },
     "mario_big_36.png": {
       "ver": "1.0.6",
-      "uuid": "382cae91-b78f-47bb-8c7d-cd67a8eea9cb",
+      "uuid": "910e5f61-c205-45ba-8b7c-b428d2585949",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -724,7 +724,7 @@
     },
     "mario_big_37.png": {
       "ver": "1.0.6",
-      "uuid": "8682debf-ec19-4b4a-a10e-41ad0e2733ac",
+      "uuid": "faea4623-68e3-40aa-bd87-0f2602ce5a1c",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -747,7 +747,7 @@
     },
     "mario_big_38.png": {
       "ver": "1.0.6",
-      "uuid": "66e186ac-09f0-42ab-9d7f-5f2b5a7d7ab8",
+      "uuid": "b2524e5b-9a7b-45cc-bcdc-1c91daa25509",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -770,7 +770,7 @@
     },
     "mario_big_39.png": {
       "ver": "1.0.6",
-      "uuid": "26e6adfb-af2f-4443-b5e8-e7d2d6bdf85b",
+      "uuid": "1e126ba4-e453-4a22-8e22-1d9342d3076d",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -793,7 +793,7 @@
     },
     "mario_big_4.png": {
       "ver": "1.0.6",
-      "uuid": "1c19816a-a4ff-422d-a934-39b980dc6ded",
+      "uuid": "f6ebc907-90b3-4a1c-b5bc-0e3ff4c0ad14",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -816,7 +816,7 @@
     },
     "mario_big_40.png": {
       "ver": "1.0.6",
-      "uuid": "f8c51709-e67c-403d-bfaa-294144296eb0",
+      "uuid": "046664f6-c174-4860-a25b-215162bf319e",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -839,7 +839,7 @@
     },
     "mario_big_41.png": {
       "ver": "1.0.6",
-      "uuid": "68cd3a96-136c-4179-b1d9-b3e57abdacc4",
+      "uuid": "e5ff5d0a-5042-4f80-b886-7f412d9b0d27",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -862,7 +862,7 @@
     },
     "mario_big_42.png": {
       "ver": "1.0.6",
-      "uuid": "039808db-5708-467a-8a8c-5cdc36571bf3",
+      "uuid": "821867e0-5d18-45ed-b0ce-0e2d31bb8c22",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -885,7 +885,7 @@
     },
     "mario_big_43.png": {
       "ver": "1.0.6",
-      "uuid": "2a6098f5-33eb-47a4-af47-cafdbb512e06",
+      "uuid": "923df59b-cd8e-4206-b590-e6617221ccbc",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -908,7 +908,7 @@
     },
     "mario_big_44.png": {
       "ver": "1.0.6",
-      "uuid": "a8520535-1f00-4cfd-9c56-433537a49dd4",
+      "uuid": "0daaef7c-7dbd-4c11-b41e-a18c393e163d",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -931,7 +931,7 @@
     },
     "mario_big_5.png": {
       "ver": "1.0.6",
-      "uuid": "fd27889b-cf25-4468-8b53-ce6d2d63acb8",
+      "uuid": "4e869345-cae3-4850-aa1d-434e2f0b1fe6",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -954,7 +954,7 @@
     },
     "mario_big_6.png": {
       "ver": "1.0.6",
-      "uuid": "1e3602b9-db8c-48f2-9153-b8ff62258105",
+      "uuid": "ee2b7765-4230-42d7-bec5-ea6339321c95",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -977,7 +977,7 @@
     },
     "mario_big_7.png": {
       "ver": "1.0.6",
-      "uuid": "e28169e1-d1ae-4bb9-9145-adfa81176f86",
+      "uuid": "19d08cfd-f28e-4d4e-94c7-284848f07af1",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -1000,7 +1000,7 @@
     },
     "mario_big_8.png": {
       "ver": "1.0.6",
-      "uuid": "0eb85731-4f49-48f0-9021-9c35955d8d8d",
+      "uuid": "fdcf1b5b-c584-43e4-b481-dd5b5bae066f",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",
@@ -1023,7 +1023,7 @@
     },
     "mario_big_9.png": {
       "ver": "1.0.6",
-      "uuid": "e3b64cbc-317f-4f7e-a980-a5a6df2ef634",
+      "uuid": "de132c9b-a996-48cd-bda7-cb92c78575d8",
       "importer": "sprite-frame",
       "rawTextureUuid": "1ae80d09-25b4-4288-b03a-9cd83e6ff02d",
       "trimType": "auto",

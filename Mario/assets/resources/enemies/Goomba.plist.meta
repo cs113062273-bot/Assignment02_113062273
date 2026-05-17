@@ -11,7 +11,7 @@
   "subMetas": {
     "Goomba_0.png": {
       "ver": "1.0.6",
-      "uuid": "cda07f21-8240-4c29-b765-dab3818d5192",
+      "uuid": "6a4de187-a804-4f1d-ab8d-ab774f2cf984",
       "importer": "sprite-frame",
       "rawTextureUuid": "f999f8a7-27d7-48ea-8642-065c9cafa7b4",
       "trimType": "auto",
@@ -34,7 +34,7 @@
     },
     "Goomba_1.png": {
       "ver": "1.0.6",
-      "uuid": "774c5446-d20b-485b-9e72-dccca5e6fff7",
+      "uuid": "47c1e2a2-bdec-4b36-bb5a-b36e9bcc6897",
       "importer": "sprite-frame",
       "rawTextureUuid": "f999f8a7-27d7-48ea-8642-065c9cafa7b4",
       "trimType": "auto",
@@ -57,7 +57,7 @@
     },
     "Goomba_2.png": {
       "ver": "1.0.6",
-      "uuid": "b9be4240-4b1d-4477-969e-cbbda1e204b3",
+      "uuid": "3463a3cf-8321-4681-9a29-a2b08a7c2f98",
       "importer": "sprite-frame",
       "rawTextureUuid": "f999f8a7-27d7-48ea-8642-065c9cafa7b4",
       "trimType": "auto",
@@ -80,7 +80,7 @@
     },
     "Goomba_3.png": {
       "ver": "1.0.6",
-      "uuid": "9f8bbb66-7070-4e1b-9214-aed7a3e7ee24",
+      "uuid": "7700e765-0de9-4618-90c9-9cdc7c6fa9ac",
       "importer": "sprite-frame",
       "rawTextureUuid": "f999f8a7-27d7-48ea-8642-065c9cafa7b4",
       "trimType": "auto",
@@ -103,7 +103,7 @@
     },
     "Goomba_4.png": {
       "ver": "1.0.6",
-      "uuid": "3feb9627-dffe-4282-b1bf-7399ec59ee45",
+      "uuid": "b099f546-a607-4724-bb2f-80830364b28e",
       "importer": "sprite-frame",
       "rawTextureUuid": "f999f8a7-27d7-48ea-8642-065c9cafa7b4",
       "trimType": "auto",
