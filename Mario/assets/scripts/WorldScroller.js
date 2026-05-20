@@ -13,7 +13,9 @@ cc.Class({
             return;
         }
 
-        const desired = cc.misc.clampf(this.target.x - this.viewWidth * 0.5, this.leftLimit, this.rightLimit - this.viewWidth);
-        this.node.x = -desired;
+        const halfWidth = this.viewWidth * 0.5;
+        const minCameraX = this.leftLimit + halfWidth;
+        const maxCameraX = this.rightLimit - halfWidth;
+        this.node.x = cc.misc.clampf(this.target.x, minCameraX, maxCameraX);
     }
 });
