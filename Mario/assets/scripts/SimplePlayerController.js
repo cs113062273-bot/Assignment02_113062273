@@ -1,6 +1,5 @@
-const GoombaController = require('GoombaController');
+const EnemyController = require('EnemyController');
 const QuestionBlock = require('QuestionBlock');
-const PowerMushroom = require('PowerMushroom');
 const GoalPole = require('GoalPole');
 
 cc.Class({
@@ -42,6 +41,12 @@ cc.Class({
         this.frameIndex = 0;
         this.lastWorldX = this.node.x;
         this.controlEnabled = true;
+        this.damageBlinkTimer = 0;
+        this.damageBlinkDuration = 0;
+        this.blinkVisible = true;
+        this.localWorldFrozen = false;
+        this.freezeDuration = 1;
+        this.cachedGravity = cc.v2(0, -2000);
         this.baseScaleX = Math.abs(this.node.scaleX || 1);
         this.baseScaleY = Math.abs(this.node.scaleY || 1);
         this.sizeMultiplier = 1;
@@ -82,6 +87,11 @@ cc.Class({
         this.frameIndex = 0;
         this.lastWorldX = this.node.x;
         this.node.active = true;
+        this.setSpriteVisible(true);
+        this.damageBlinkTimer = 0;
+        this.damageBlinkDuration = 0;
+        this.blinkVisible = true;
+        this.localWorldFrozen = false;
 
         if (this.body) {
             this.body.linearVelocity = cc.v2(0, 0);
@@ -110,7 +120,17 @@ cc.Class({
     },
 
     update(dt) {
+        this.updateDamageBlink(dt);
+
         if (!this.body) {
+            return;
+        }
+
+        if (this.isWorldFrozen()) {
+            if (this.body) {
+                this.body.linearVelocity = cc.v2(0, 0);
+            }
+            this.lastWorldX = this.node.x;
             return;
         }
 
@@ -135,9 +155,87 @@ cc.Class({
 
         this.body.linearVelocity = cc.v2(vx, this.body.linearVelocity.y);
         this.updateAnimation(movedX);
+    },
 
-        if (this.node.y < -120 && this.game) {
+    isWorldFrozen() {
+        return (this.game && this.game.isWorldFrozen && this.game.isWorldFrozen()) || this.localWorldFrozen;
+    },
+
+    takeDamage() {
+        if (this.game && this.game.loseLife) {
             this.game.loseLife();
+            return;
+        }
+
+        if (this.localWorldFrozen) {
+            return;
+        }
+
+        this.localWorldFrozen = true;
+        this.cachePhysicsGravity();
+        this.pausePhysics();
+        this.enableControl(false);
+        this.beginDamageBlink(this.freezeDuration);
+
+        this.scheduleOnce(() => {
+            this.resumePhysics();
+            this.localWorldFrozen = false;
+            this.enableControl(true);
+        }, this.freezeDuration);
+    },
+
+    cachePhysicsGravity() {
+        const physicsManager = cc.director.getPhysicsManager();
+        if (physicsManager && physicsManager.gravity) {
+            this.cachedGravity = physicsManager.gravity.clone ? physicsManager.gravity.clone() : cc.v2(physicsManager.gravity.x, physicsManager.gravity.y);
+        }
+    },
+
+    pausePhysics() {
+        const physicsManager = cc.director.getPhysicsManager();
+        if (physicsManager) {
+            physicsManager.enabled = false;
+        }
+    },
+
+    resumePhysics() {
+        const physicsManager = cc.director.getPhysicsManager();
+        if (physicsManager) {
+            physicsManager.enabled = true;
+            physicsManager.gravity = this.cachedGravity || cc.v2(0, -2000);
+        }
+    },
+
+    beginDamageBlink(duration) {
+        this.damageBlinkTimer = 0;
+        this.damageBlinkDuration = duration;
+        this.blinkVisible = false;
+        this.setSpriteVisible(false);
+    },
+
+    updateDamageBlink(dt) {
+        if (!this.sprite || this.damageBlinkDuration <= 0) {
+            return;
+        }
+
+        this.damageBlinkTimer += dt;
+        const shouldShow = Math.floor(this.damageBlinkTimer * 12) % 2 === 0;
+        if (shouldShow !== this.blinkVisible) {
+            this.blinkVisible = shouldShow;
+            this.setSpriteVisible(shouldShow);
+        }
+
+        if (this.damageBlinkTimer >= this.damageBlinkDuration) {
+            this.damageBlinkTimer = 0;
+            this.damageBlinkDuration = 0;
+            this.blinkVisible = true;
+            this.setSpriteVisible(true);
+        }
+    },
+
+    setSpriteVisible(visible) {
+        if (this.sprite) {
+            this.sprite.enabled = visible;
         }
     },
 
@@ -195,32 +293,52 @@ cc.Class({
         return Math.abs(normal.y) > 0.4;
     },
 
+    isBlockHitFromBelow(contact, blockNode) {
+        if (!this.body || this.body.linearVelocity.y <= 0 || !blockNode) {
+            return false;
+        }
+
+        const normal = contact.getWorldManifold().normal;
+        if (normal.y > 0.3) {
+            return true;
+        }
+
+        const playerBounds = this.node.getBoundingBoxToWorld();
+        const blockBounds = blockNode.getBoundingBoxToWorld();
+
+        const playerLeft = playerBounds.x;
+        const playerRight = playerBounds.x + playerBounds.width;
+        const playerTop = playerBounds.y + playerBounds.height;
+        const blockLeft = blockBounds.x;
+        const blockRight = blockBounds.x + blockBounds.width;
+        const blockBottom = blockBounds.y;
+
+        const horizontalOverlap = playerRight > blockLeft + 2 && playerLeft < blockRight - 2;
+        const isUnderBlock = playerTop <= blockBottom + 8;
+
+        return horizontalOverlap && isUnderBlock;
+    },
+
     onBeginContact(contact, selfCollider, otherCollider) {
         const otherNode = otherCollider.node;
-        const enemy = otherNode.getComponent(GoombaController);
+        const enemy = otherNode.getComponent(EnemyController);
         const block = otherNode.getComponent(QuestionBlock);
-        const mushroom = otherNode.getComponent(PowerMushroom);
         const goal = otherNode.getComponent(GoalPole);
 
         if (enemy) {
-            const myBottom = this.node.y - this.node.height * this.node.anchorY;
-            const enemyTop = enemy.node.y + enemy.node.height / 2;
             const falling = this.body && this.body.linearVelocity.y < -10;
+            const normal = contact.getWorldManifold().normal;
+            const stompedFromAbove = normal.y < -0.3;
 
-            if (falling && myBottom > enemyTop - 8) {
+            if (falling && stompedFromAbove) {
                 enemy.stomp();
                 this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, this.jumpSpeed * 0.55);
                 if (this.game) {
                     this.game.stompEnemy();
                 }
-            } else if (this.game) {
-                this.game.loseLife();
+            } else {
+                this.takeDamage();
             }
-            return;
-        }
-
-        if (mushroom) {
-            mushroom.collect(this);
             return;
         }
 
@@ -239,8 +357,7 @@ cc.Class({
         }
 
         if (block) {
-            const normal = contact.getWorldManifold().normal;
-            if (normal.y > 0.4 && this.body && this.body.linearVelocity.y > 0) {
+            if (this.isBlockHitFromBelow(contact, otherNode)) {
                 block.hitFromBelow();
             }
         }
@@ -248,10 +365,9 @@ cc.Class({
 
     onEndContact(contact, selfCollider, otherCollider) {
         const otherNode = otherCollider.node;
-        const enemy = otherNode.getComponent(GoombaController);
-        const mushroom = otherNode.getComponent(PowerMushroom);
+        const enemy = otherNode.getComponent(EnemyController);
         const goal = otherNode.getComponent(GoalPole);
-        if (enemy || mushroom || goal) {
+        if (enemy || goal) {
             return;
         }
 

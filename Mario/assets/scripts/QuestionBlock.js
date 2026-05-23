@@ -1,11 +1,8 @@
-const PowerMushroom = require('PowerMushroom');
-
 cc.Class({
     extends: cc.Component,
 
     properties: {
         gameNode: cc.Node,
-        visualNode: cc.Node,
         questionSpriteFrame: cc.SpriteFrame,
         rewardPrefab: cc.Prefab,
         coinSpriteFrame: cc.SpriteFrame,
@@ -19,9 +16,9 @@ cc.Class({
     },
 
     onLoad() {
-        this.visual = this.visualNode || this.node.children[0] || this.node;
-        this.sprite = this.visual.getComponent(cc.Sprite) || this.getComponent(cc.Sprite);
+        this.sprite = this.getComponent(cc.Sprite);
         this.used = this.startsUsed;
+        this.homePosition = this.node.position.clone();
 
         if (this.sprite) {
             if (this.used && this.usedSpriteFrame) {
@@ -37,24 +34,37 @@ cc.Class({
     },
 
     playBounce() {
-        this.visual.stopAllActions();
-        this.visual.setPosition(cc.v2());
-        this.visual.runAction(
+        this.node.stopAllActions();
+        this.node.setPosition(this.homePosition);
+        this.node.runAction(
             cc.sequence(
                 cc.moveBy(this.bounceDuration, 0, this.bounceHeight),
-                cc.moveBy(this.bounceDuration, 0, -this.bounceHeight)
+                cc.moveBy(this.bounceDuration, 0, -this.bounceHeight),
+                cc.callFunc(() => {
+                    this.node.setPosition(this.homePosition);
+                })
             )
         );
     },
 
+    getTopPositionInParent(offsetY) {
+        const parent = this.node.parent;
+        if (!parent) {
+            return this.node.position.add(cc.v2(0, offsetY));
+        }
+
+        const worldTop = this.node.convertToWorldSpaceAR(cc.v2(0, offsetY));
+        return parent.convertToNodeSpaceAR(worldTop);
+    },
+
     spawnCoinPopup() {
-        if (!this.coinSpriteFrame) {
+        if (!this.coinSpriteFrame || !this.node.parent) {
             return;
         }
 
         const coinNode = new cc.Node('CoinPopup');
         coinNode.parent = this.node.parent;
-        coinNode.setPosition(this.node.x, this.node.y + this.node.height * 0.5);
+        coinNode.setPosition(this.getTopPositionInParent(this.node.height * 0.5));
 
         const sprite = coinNode.addComponent(cc.Sprite);
         sprite.spriteFrame = this.coinSpriteFrame;
@@ -72,11 +82,11 @@ cc.Class({
     },
 
     hitFromBelow() {
-        this.playBounce();
-
         if (this.used) {
             return;
         }
+
+        this.playBounce();
 
         this.used = true;
         if (this.usedSpriteFrame && this.sprite) {
@@ -94,11 +104,7 @@ cc.Class({
         if (this.rewardPrefab) {
             const reward = cc.instantiate(this.rewardPrefab);
             reward.parent = this.node.parent;
-            reward.setPosition(this.node.x, this.node.y + 40);
-            const mushroom = reward.getComponent(PowerMushroom);
-            if (mushroom && this.gameNode) {
-                mushroom.gameNode = this.gameNode;
-            }
+            reward.setPosition(this.getTopPositionInParent(40));
         }
     }
 });

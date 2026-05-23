@@ -43,6 +43,8 @@ cc.Class({
         this.timeLeft = this.startTime;
         this.countdownScheduled = false;
         this.musicId = -1;
+        this.worldFrozen = false;
+        this.freezeDuration = 1;
 
         this.playerController = this.player ? this.player.getComponent(SimplePlayerController) : null;
         if (this.playerController) {
@@ -113,8 +115,13 @@ cc.Class({
 
         this.refreshUI();
         this.showStatus('Stage 1-1');
+        this.worldFrozen = false;
         this.startCountdown();
         this.playMusic();
+    },
+
+    isWorldFrozen() {
+        return this.worldFrozen;
     },
 
     setPlayerActive(active) {
@@ -135,7 +142,7 @@ cc.Class({
     },
 
     tickCountdown() {
-        if (this.state !== 'playing') {
+        if (this.state !== 'playing' || this.worldFrozen) {
             return;
         }
 
@@ -177,28 +184,58 @@ cc.Class({
     },
 
     loseLife() {
-        if (this.state !== 'playing') {
+        if (this.state !== 'playing' || this.worldFrozen) {
             return;
         }
 
         this.lives -= 1;
         this.playEffect(this.dieSfx);
         this.refreshUI();
+        this.freezeWorld(this.freezeDuration);
 
         if (this.playerController) {
             this.playerController.enableControl(false);
+            this.playerController.beginDamageBlink(this.freezeDuration);
         }
 
-        if (this.lives > 0) {
-            this.showStatus(`Respawn! Lives: ${this.lives}`);
-            this.scheduleOnce(() => {
+        this.scheduleOnce(() => {
+            if (this.lives > 0) {
+                this.showStatus(`Respawn! Lives: ${this.lives}`);
                 if (this.playerController) {
                     this.playerController.resetPlayer();
                     this.playerController.enableControl(true);
                 }
-            }, 1);
-        } else {
-            this.gameOver();
+            } else {
+                this.gameOver();
+            }
+        }, this.freezeDuration);
+    },
+
+    freezeWorld(duration) {
+        this.worldFrozen = true;
+        this.pausePhysics();
+
+        this.unschedule(this.resumeWorldAfterFreeze);
+        this.scheduleOnce(this.resumeWorldAfterFreeze, duration);
+    },
+
+    resumeWorldAfterFreeze() {
+        this.resumePhysics();
+        this.worldFrozen = false;
+    },
+
+    pausePhysics() {
+        const physicsManager = cc.director.getPhysicsManager();
+        if (physicsManager) {
+            physicsManager.enabled = false;
+        }
+    },
+
+    resumePhysics() {
+        const physicsManager = cc.director.getPhysicsManager();
+        if (physicsManager) {
+            physicsManager.enabled = true;
+            physicsManager.gravity = cc.v2(0, -2000);
         }
     },
 
