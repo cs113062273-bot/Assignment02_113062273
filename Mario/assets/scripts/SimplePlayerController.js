@@ -29,9 +29,11 @@ cc.Class({
             right: false
         };
         this.groundContacts = 0;
+        this.groundContactIds = new Set();
         this.onGround = false;
         this.frameTimer = 0;
         this.frameIndex = 0;
+        this.lastWorldX = this.node.x;
 
         if (this.body) {
             this.body.enabledContactListener = true;
@@ -53,10 +55,14 @@ cc.Class({
         cc.systemEvent.off(cc.SystemEvent.EventType.KEY_UP, this._onKeyUp);
     },
 
-    update() {
+    update(dt) {
         if (!this.body) {
             return;
         }
+
+        const movedX = dt > 0 ? (this.node.x - this.lastWorldX) / dt : 0;
+        this.lastWorldX = this.node.x;
+        this.onGround = this.groundContactIds.size > 0;
 
         let vx = 0;
         if (this.keys.left) {
@@ -69,7 +75,7 @@ cc.Class({
         }
 
         this.body.linearVelocity = cc.v2(vx, this.body.linearVelocity.y);
-        this.updateAnimation(vx);
+        this.updateAnimation(movedX);
     },
 
     onKeyDown(event) {
@@ -113,6 +119,7 @@ cc.Class({
 
         this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, this.jumpSpeed);
         this.groundContacts = 0;
+        this.groundContactIds.clear();
         this.onGround = false;
     },
 
@@ -123,19 +130,23 @@ cc.Class({
 
     onBeginContact(contact, selfCollider, otherCollider) {
         if (otherCollider && !otherCollider.sensor && this.isGroundContact(contact)) {
-            this.groundContacts += 1;
+            const contactId = this.getContactId(otherCollider);
+            this.groundContactIds.add(contactId);
+            this.groundContacts = this.groundContactIds.size;
             this.onGround = true;
         }
     },
 
     onEndContact(contact, selfCollider, otherCollider) {
         if (otherCollider && !otherCollider.sensor && this.isGroundContact(contact)) {
-            this.groundContacts = Math.max(0, this.groundContacts - 1);
-            this.onGround = this.groundContacts > 0;
+            const contactId = this.getContactId(otherCollider);
+            this.groundContactIds.delete(contactId);
+            this.groundContacts = this.groundContactIds.size;
+            this.onGround = this.groundContactIds.size > 0;
         }
     },
 
-    updateAnimation(vx) {
+    updateAnimation(actualSpeedX) {
         if (!this.sprite) {
             return;
         }
@@ -145,15 +156,15 @@ cc.Class({
             return;
         }
 
-        this.updateRunAnimation(vx);
+        this.updateRunAnimation(actualSpeedX);
     },
 
-    updateRunAnimation(vx) {
+    updateRunAnimation(actualSpeedX) {
         if (this.runFrames.length === 0) {
             return;
         }
 
-        if (Math.abs(vx) < 1) {
+        if (Math.abs(actualSpeedX) < 5) {
             this.frameTimer = 0;
             this.frameIndex = 0;
             this.sprite.spriteFrame = this.runFrames[0];
@@ -194,5 +205,11 @@ cc.Class({
         } else {
             this.sprite.spriteFrame = this.jumpFrames[1];
         }
+    },
+
+    getContactId(collider) {
+        const nodeId = collider && collider.node ? collider.node.uuid : 'unknown-node';
+        const tag = collider ? collider.tag : 'unknown-tag';
+        return `${nodeId}:${tag}`;
     }
 });
