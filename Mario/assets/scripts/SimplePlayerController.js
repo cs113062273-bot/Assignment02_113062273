@@ -1,7 +1,13 @@
+const GoombaController = require('GoombaController');
+const QuestionBlock = require('QuestionBlock');
+const PowerMushroom = require('PowerMushroom');
+const GoalPole = require('GoalPole');
+
 cc.Class({
     extends: cc.Component,
 
     properties: {
+        spawnPoint: cc.Node,
         moveSpeed: {
             default: 220
         },
@@ -22,6 +28,7 @@ cc.Class({
     },
 
     onLoad() {
+        this.game = null;
         this.body = this.getComponent(cc.RigidBody);
         this.sprite = this.getComponent(cc.Sprite);
         this.keys = {
@@ -34,6 +41,11 @@ cc.Class({
         this.frameTimer = 0;
         this.frameIndex = 0;
         this.lastWorldX = this.node.x;
+        this.controlEnabled = true;
+        this.baseScaleX = Math.abs(this.node.scaleX || 1);
+        this.baseScaleY = Math.abs(this.node.scaleY || 1);
+        this.sizeMultiplier = 1;
+        this.spawnPosition = this.spawnPoint ? this.spawnPoint.position.clone() : this.node.position.clone();
 
         if (this.body) {
             this.body.enabledContactListener = true;
@@ -47,6 +59,48 @@ cc.Class({
 
         if (this.sprite && this.runFrames.length > 0) {
             this.sprite.spriteFrame = this.runFrames[0];
+        }
+    },
+
+    setGame(game) {
+        this.game = game;
+    },
+
+    resetPlayer() {
+        const spawn = this.spawnPoint ? this.spawnPoint.position : this.spawnPosition;
+        this.node.setPosition(spawn);
+        this.node.angle = 0;
+        this.sizeMultiplier = 1;
+        this.node.scaleX = this.baseScaleX;
+        this.node.scaleY = this.baseScaleY;
+        this.keys.left = false;
+        this.keys.right = false;
+        this.groundContacts = 0;
+        this.groundContactIds.clear();
+        this.onGround = false;
+        this.frameTimer = 0;
+        this.frameIndex = 0;
+        this.lastWorldX = this.node.x;
+        this.node.active = true;
+
+        if (this.body) {
+            this.body.linearVelocity = cc.v2(0, 0);
+            this.body.angularVelocity = 0;
+            this.body.awake = true;
+        }
+
+        if (this.sprite && this.runFrames.length > 0) {
+            this.sprite.spriteFrame = this.runFrames[0];
+        }
+    },
+
+    enableControl(enabled) {
+        this.controlEnabled = enabled;
+        this.keys.left = false;
+        this.keys.right = false;
+
+        if (!enabled && this.body) {
+            this.body.linearVelocity = cc.v2(0, this.body.linearVelocity.y);
         }
     },
 
@@ -64,21 +118,34 @@ cc.Class({
         this.lastWorldX = this.node.x;
         this.onGround = this.groundContactIds.size > 0;
 
+        if (!this.controlEnabled) {
+            this.updateAnimation(0);
+            return;
+        }
+
         let vx = 0;
         if (this.keys.left) {
             vx -= this.moveSpeed;
-            this.node.scaleX = -Math.abs(this.node.scaleX || 1);
+            this.node.scaleX = -this.baseScaleX * this.sizeMultiplier;
         }
         if (this.keys.right) {
             vx += this.moveSpeed;
-            this.node.scaleX = Math.abs(this.node.scaleX || 1);
+            this.node.scaleX = this.baseScaleX * this.sizeMultiplier;
         }
 
         this.body.linearVelocity = cc.v2(vx, this.body.linearVelocity.y);
         this.updateAnimation(movedX);
+
+        if (this.node.y < -120 && this.game) {
+            this.game.loseLife();
+        }
     },
 
     onKeyDown(event) {
+        if (!this.controlEnabled) {
+            return;
+        }
+
         switch (event.keyCode) {
             case cc.macro.KEY.a:
             case cc.macro.KEY.left:
@@ -129,15 +196,65 @@ cc.Class({
     },
 
     onBeginContact(contact, selfCollider, otherCollider) {
+        const otherNode = otherCollider.node;
+        const enemy = otherNode.getComponent(GoombaController);
+        const block = otherNode.getComponent(QuestionBlock);
+        const mushroom = otherNode.getComponent(PowerMushroom);
+        const goal = otherNode.getComponent(GoalPole);
+
+        if (enemy) {
+            const myBottom = this.node.y - this.node.height * this.node.anchorY;
+            const enemyTop = enemy.node.y + enemy.node.height / 2;
+            const falling = this.body && this.body.linearVelocity.y < -10;
+
+            if (falling && myBottom > enemyTop - 8) {
+                enemy.stomp();
+                this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, this.jumpSpeed * 0.55);
+                if (this.game) {
+                    this.game.stompEnemy();
+                }
+            } else if (this.game) {
+                this.game.loseLife();
+            }
+            return;
+        }
+
+        if (mushroom) {
+            mushroom.collect(this);
+            return;
+        }
+
+        if (goal) {
+            if (this.game) {
+                this.game.clearLevel();
+            }
+            return;
+        }
+
         if (otherCollider && !otherCollider.sensor && this.isGroundContact(contact)) {
             const contactId = this.getContactId(otherCollider);
             this.groundContactIds.add(contactId);
             this.groundContacts = this.groundContactIds.size;
             this.onGround = true;
         }
+
+        if (block) {
+            const normal = contact.getWorldManifold().normal;
+            if (normal.y > 0.4 && this.body && this.body.linearVelocity.y > 0) {
+                block.hitFromBelow();
+            }
+        }
     },
 
     onEndContact(contact, selfCollider, otherCollider) {
+        const otherNode = otherCollider.node;
+        const enemy = otherNode.getComponent(GoombaController);
+        const mushroom = otherNode.getComponent(PowerMushroom);
+        const goal = otherNode.getComponent(GoalPole);
+        if (enemy || mushroom || goal) {
+            return;
+        }
+
         if (otherCollider && !otherCollider.sensor && this.isGroundContact(contact)) {
             const contactId = this.getContactId(otherCollider);
             this.groundContactIds.delete(contactId);
@@ -211,5 +328,12 @@ cc.Class({
         const nodeId = collider && collider.node ? collider.node.uuid : 'unknown-node';
         const tag = collider ? collider.tag : 'unknown-tag';
         return `${nodeId}:${tag}`;
+    },
+
+    growBig() {
+        this.sizeMultiplier = 1.2;
+        const facing = this.node.scaleX < 0 ? -1 : 1;
+        this.node.scaleX = this.baseScaleX * this.sizeMultiplier * facing;
+        this.node.scaleY = this.baseScaleY * this.sizeMultiplier;
     }
 });

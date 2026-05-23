@@ -1,4 +1,4 @@
-const PlayerController = require('PlayerController');
+const SimplePlayerController = require('SimplePlayerController');
 
 cc.Class({
     extends: cc.Component,
@@ -44,7 +44,7 @@ cc.Class({
         this.countdownScheduled = false;
         this.musicId = -1;
 
-        this.playerController = this.player ? this.player.getComponent(PlayerController) : null;
+        this.playerController = this.player ? this.player.getComponent(SimplePlayerController) : null;
         if (this.playerController) {
             this.playerController.setGame(this);
         }
