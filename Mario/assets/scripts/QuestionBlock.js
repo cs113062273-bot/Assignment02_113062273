@@ -4,6 +4,14 @@ cc.Class({
     properties: {
         gameNode: cc.Node,
         questionSpriteFrame: cc.SpriteFrame,
+        rewardType: {
+            default: 0,
+            type: cc.Enum({
+                Coin: 0,
+                Mushroom: 1
+            })
+        },
+        rewardNode: cc.Node,
         rewardPrefab: cc.Prefab,
         coinSpriteFrame: cc.SpriteFrame,
         usedSpriteFrame: cc.SpriteFrame,
@@ -12,7 +20,8 @@ cc.Class({
         bounceHeight: 10,
         bounceDuration: 0.08,
         coinRiseHeight: 42,
-        coinLifetime: 0.35
+        coinLifetime: 0.35,
+        rewardSpawnOffsetY: 0
     },
 
     onLoad() {
@@ -81,6 +90,42 @@ cc.Class({
         );
     },
 
+    spawnMushroomReward() {
+        if (this.rewardNode) {
+            const mushroomNode = this.rewardNode;
+            mushroomNode.active = true;
+
+            const mushroom = mushroomNode.getComponent('PowerMushroom');
+            if (mushroom && mushroom.spawnFromQuestionBlock) {
+                mushroom.spawnFromQuestionBlock(this.node, this.gameNode, this.rewardSpawnOffsetY);
+                return;
+            }
+
+            mushroomNode.setPosition(this.getTopPositionInParent(this.rewardSpawnOffsetY));
+            return;
+        }
+
+        if (!this.rewardPrefab || !this.node.parent) {
+            return;
+        }
+
+        const reward = cc.instantiate(this.rewardPrefab);
+        reward.parent = this.node.parent;
+
+        const mushroom = reward.getComponent('PowerMushroom');
+        if (mushroom && mushroom.spawnFromQuestionBlock) {
+            mushroom.spawnFromQuestionBlock(this.node, this.gameNode, this.rewardSpawnOffsetY);
+            return;
+        }
+
+        const spawnPosition = this.getTopPositionInParent(this.rewardSpawnOffsetY);
+        reward.setPosition(spawnPosition);
+
+        if (mushroom && mushroom.setGameNode) {
+            mushroom.setGameNode(this.gameNode);
+        }
+    },
+
     hitFromBelow() {
         if (this.used) {
             return;
@@ -96,15 +141,16 @@ cc.Class({
         const game = this.getGame();
         if (game) {
             game.hitQuestionBlock();
-            game.addScore(this.rewardScore);
+            if (this.rewardType === 0) {
+                game.addScore(this.rewardScore);
+            }
         }
 
-        this.spawnCoinPopup();
-
-        if (this.rewardPrefab) {
-            const reward = cc.instantiate(this.rewardPrefab);
-            reward.parent = this.node.parent;
-            reward.setPosition(this.getTopPositionInParent(40));
+        if (this.rewardType === 0) {
+            this.spawnCoinPopup();
+            return;
         }
+
+        this.spawnMushroomReward();
     }
 });
