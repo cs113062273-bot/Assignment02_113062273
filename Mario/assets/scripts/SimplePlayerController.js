@@ -1,4 +1,5 @@
-const EnemyController = require('EnemyController');
+const GoombaController = require('GoombaController');
+const FlowerController = require('FlowerController');
 const QuestionBlock = require('QuestionBlock');
 const GoalPole = require('GoalPole');
 const OneWayPlatform = require('OneWayPlatform');
@@ -343,18 +344,19 @@ cc.Class({
 
     onBeginContact(contact, selfCollider, otherCollider) {
         const otherNode = otherCollider.node;
-        const enemy = otherNode.getComponent(EnemyController);
+        const goomba = otherNode.getComponent(GoombaController);
+        const flower = otherNode.getComponent(FlowerController);
         const block = otherNode.getComponent(QuestionBlock);
         const goal = otherNode.getComponent(GoalPole);
         const oneWayPlatform = otherNode.getComponent(OneWayPlatform);
 
-        if (enemy) {
+        if (goomba) {
             const falling = this.body && this.body.linearVelocity.y < -10;
             const normal = contact.getWorldManifold().normal;
             const stompedFromAbove = normal.y < -0.3;
 
             if (falling && stompedFromAbove) {
-                enemy.stomp();
+                goomba.stomp();
                 this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, this.jumpSpeed * 0.55);
                 if (this.game) {
                     this.game.stompEnemy();
@@ -362,6 +364,11 @@ cc.Class({
             } else {
                 this.takeDamage();
             }
+            return;
+        }
+
+        if (flower) {
+            this.takeDamage();
             return;
         }
 
@@ -396,10 +403,11 @@ cc.Class({
 
     onEndContact(contact, selfCollider, otherCollider) {
         const otherNode = otherCollider.node;
-        const enemy = otherNode.getComponent(EnemyController);
+        const goomba = otherNode.getComponent(GoombaController);
+        const flower = otherNode.getComponent(FlowerController);
         const goal = otherNode.getComponent(GoalPole);
         const oneWayPlatform = otherNode.getComponent(OneWayPlatform);
-        if (enemy || goal) {
+        if (goomba || flower || goal) {
             return;
         }
 
