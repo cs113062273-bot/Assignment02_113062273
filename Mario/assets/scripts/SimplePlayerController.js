@@ -1,6 +1,7 @@
 const EnemyController = require('EnemyController');
 const QuestionBlock = require('QuestionBlock');
 const GoalPole = require('GoalPole');
+const OneWayPlatform = require('OneWayPlatform');
 
 cc.Class({
     extends: cc.Component,
@@ -51,6 +52,15 @@ cc.Class({
         this.baseScaleY = Math.abs(this.node.scaleY || 1);
         this.sizeMultiplier = 1;
         this.spawnPosition = this.spawnPoint ? this.spawnPoint.position.clone() : this.node.position.clone();
+        this.currentWorldBounds = this.node.getBoundingBoxToWorld();
+        this.previousWorldBounds = cc.rect(
+            this.currentWorldBounds.x,
+            this.currentWorldBounds.y,
+            this.currentWorldBounds.width,
+            this.currentWorldBounds.height
+        );
+        this.oneWayContacts = new Map();
+        this.activeOneWayGroundId = null;
 
         if (this.body) {
             this.body.enabledContactListener = true;
@@ -92,6 +102,15 @@ cc.Class({
         this.damageBlinkDuration = 0;
         this.blinkVisible = true;
         this.localWorldFrozen = false;
+        this.currentWorldBounds = this.node.getBoundingBoxToWorld();
+        this.previousWorldBounds = cc.rect(
+            this.currentWorldBounds.x,
+            this.currentWorldBounds.y,
+            this.currentWorldBounds.width,
+            this.currentWorldBounds.height
+        );
+        this.oneWayContacts.clear();
+        this.activeOneWayGroundId = null;
 
         if (this.body) {
             this.body.linearVelocity = cc.v2(0, 0);
@@ -121,6 +140,8 @@ cc.Class({
 
     update(dt) {
         this.updateDamageBlink(dt);
+        this.previousWorldBounds = this.cloneRect(this.currentWorldBounds || this.node.getBoundingBoxToWorld());
+        this.currentWorldBounds = this.node.getBoundingBoxToWorld();
 
         if (!this.body) {
             return;
@@ -136,7 +157,8 @@ cc.Class({
 
         const movedX = dt > 0 ? (this.node.x - this.lastWorldX) / dt : 0;
         this.lastWorldX = this.node.x;
-        this.onGround = this.groundContactIds.size > 0;
+        this.resolveOneWayPlatformSupport();
+        this.onGround = this.groundContactIds.size > 0 || !!this.activeOneWayGroundId;
 
         if (!this.controlEnabled) {
             this.updateAnimation(0);
@@ -324,6 +346,7 @@ cc.Class({
         const enemy = otherNode.getComponent(EnemyController);
         const block = otherNode.getComponent(QuestionBlock);
         const goal = otherNode.getComponent(GoalPole);
+        const oneWayPlatform = otherNode.getComponent(OneWayPlatform);
 
         if (enemy) {
             const falling = this.body && this.body.linearVelocity.y < -10;
@@ -339,6 +362,14 @@ cc.Class({
             } else {
                 this.takeDamage();
             }
+            return;
+        }
+
+        if (oneWayPlatform) {
+            this.oneWayContacts.set(this.getContactId(otherCollider), {
+                collider: otherCollider,
+                platform: oneWayPlatform
+            });
             return;
         }
 
@@ -367,7 +398,17 @@ cc.Class({
         const otherNode = otherCollider.node;
         const enemy = otherNode.getComponent(EnemyController);
         const goal = otherNode.getComponent(GoalPole);
+        const oneWayPlatform = otherNode.getComponent(OneWayPlatform);
         if (enemy || goal) {
+            return;
+        }
+
+        if (oneWayPlatform) {
+            const contactId = this.getContactId(otherCollider);
+            this.oneWayContacts.delete(contactId);
+            if (this.activeOneWayGroundId === contactId) {
+                this.activeOneWayGroundId = null;
+            }
             return;
         }
 
@@ -451,5 +492,73 @@ cc.Class({
         const facing = this.node.scaleX < 0 ? -1 : 1;
         this.node.scaleX = this.baseScaleX * this.sizeMultiplier * facing;
         this.node.scaleY = this.baseScaleY * this.sizeMultiplier;
+    },
+
+    getCurrentWorldBounds() {
+        return this.currentWorldBounds || this.node.getBoundingBoxToWorld();
+    },
+
+    getPreviousWorldBounds() {
+        return this.previousWorldBounds || this.getCurrentWorldBounds();
+    },
+
+    cloneRect(rect) {
+        return cc.rect(rect.x, rect.y, rect.width, rect.height);
+    },
+
+    resolveOneWayPlatformSupport() {
+        this.activeOneWayGroundId = null;
+
+        if (!this.body || this.oneWayContacts.size === 0) {
+            return;
+        }
+
+        const currentBounds = this.getCurrentWorldBounds();
+        const previousBounds = this.getPreviousWorldBounds();
+        const velocityY = this.body.linearVelocity ? this.body.linearVelocity.y : 0;
+
+        if (velocityY > 0) {
+            return;
+        }
+
+        let support = null;
+        let highestTop = -Infinity;
+
+        for (const [contactId, data] of this.oneWayContacts.entries()) {
+            if (!data || !data.platform || !data.platform.node || !cc.isValid(data.platform.node)) {
+                continue;
+            }
+
+            const platformBounds = data.platform.getPlatformBounds
+                ? data.platform.getPlatformBounds()
+                : data.collider.node.getBoundingBoxToWorld();
+            const platformTop = platformBounds.y + platformBounds.height;
+            const horizontalOverlap =
+                currentBounds.x + currentBounds.width > platformBounds.x + data.platform.sidePassPadding &&
+                currentBounds.x < platformBounds.x + platformBounds.width - data.platform.sidePassPadding;
+            const wasAbovePlatform = previousBounds.y >= platformTop - data.platform.topSurfacePadding;
+            const reachedPlatformTop = currentBounds.y <= platformTop + data.platform.topSurfacePadding;
+
+            if (!horizontalOverlap || !wasAbovePlatform || !reachedPlatformTop) {
+                continue;
+            }
+
+            if (platformTop > highestTop) {
+                highestTop = platformTop;
+                support = {
+                    contactId,
+                    top: platformTop
+                };
+            }
+        }
+
+        if (!support) {
+            return;
+        }
+
+        this.node.y += support.top - currentBounds.y;
+        this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, 0);
+        this.currentWorldBounds = this.node.getBoundingBoxToWorld();
+        this.activeOneWayGroundId = support.contactId;
     }
 });
