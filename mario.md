@@ -113,3 +113,6 @@ If you upload the files again, please change the filename become Assignment02_�
 MD5 checksum (if you didn’t do this  -10%)
 FIRM deadline: 2026/05/28 23:59 (commit time)
 Upload your MD5 and web link and GitHub / GitLab Url to eeclass
+我需要這些音效欄位
+1.player跳起來的
+2.往上彈questionbox冒出金幣的音效

@@ -4,6 +4,7 @@ const FlowerController = require('FlowerController');
 const QuestionBlock = require('QuestionBlock');
 const GoalPole = require('GoalPole');
 const OneWayPlatform = require('OneWayPlatform');
+const WorldFreezeController = require('WorldFreezeController');
 
 cc.Class({
     extends: cc.Component,
@@ -24,8 +25,40 @@ cc.Class({
             default: [],
             type: [cc.SpriteFrame]
         },
+        bigRunFrames: {
+            default: [],
+            type: [cc.SpriteFrame]
+        },
+        bigJumpFrames: {
+            default: [],
+            type: [cc.SpriteFrame]
+        },
         frameInterval: {
             default: 0.08
+        },
+        transformDuration: {
+            default: 0.75
+        },
+        transformBlinkInterval: {
+            default: 0.08
+        },
+        bigVisualSize: {
+            default() {
+                return cc.size(0, 0);
+            },
+            type: cc.Size
+        },
+        bigColliderOffset: {
+            default() {
+                return cc.v2(0, 0);
+            },
+            type: cc.Vec2
+        },
+        bigColliderSize: {
+            default() {
+                return cc.size(0, 0);
+            },
+            type: cc.Size
         }
     },
 
@@ -33,6 +66,7 @@ cc.Class({
         this.game = null;
         this.body = this.getComponent(cc.RigidBody);
         this.sprite = this.getComponent(cc.Sprite);
+        this.boxCollider = this.getComponent(cc.PhysicsBoxCollider);
         this.keys = {
             left: false,
             right: false
@@ -52,8 +86,15 @@ cc.Class({
         this.cachedGravity = cc.v2(0, -2000);
         this.baseScaleX = Math.abs(this.node.scaleX || 1);
         this.baseScaleY = Math.abs(this.node.scaleY || 1);
-        this.sizeMultiplier = 1;
+        this.currentForm = 'small';
+        this.isTransforming = false;
+        this.transformElapsed = 0;
+        this.transformPreviewForm = 'small';
+        this.startedWorldFreeze = false;
         this.spawnPosition = this.spawnPoint ? this.spawnPoint.position.clone() : this.node.position.clone();
+        this.smallVisualSize = this.cloneSize(this.node.getContentSize ? this.node.getContentSize() : cc.size(this.node.width, this.node.height));
+        this.smallColliderOffset = this.boxCollider ? this.cloneVec2(this.boxCollider.offset) : cc.v2(0, 0);
+        this.smallColliderSize = this.boxCollider ? this.cloneSize(this.boxCollider.size) : cc.size(0, 0);
         this.currentWorldBounds = this.node.getBoundingBoxToWorld();
         this.previousWorldBounds = cc.rect(
             this.currentWorldBounds.x,
@@ -74,9 +115,11 @@ cc.Class({
         cc.systemEvent.on(cc.SystemEvent.EventType.KEY_DOWN, this._onKeyDown);
         cc.systemEvent.on(cc.SystemEvent.EventType.KEY_UP, this._onKeyUp);
 
-        if (this.sprite && this.runFrames.length > 0) {
-            this.sprite.spriteFrame = this.runFrames[0];
+        if (this.sprite) {
+            this.sprite.sizeMode = cc.Sprite.SizeMode.CUSTOM;
         }
+
+        this.applyForm('small', false);
     },
 
     setGame(game) {
@@ -87,7 +130,6 @@ cc.Class({
         const spawn = this.spawnPoint ? this.spawnPoint.position : this.spawnPosition;
         this.node.setPosition(spawn);
         this.node.angle = 0;
-        this.sizeMultiplier = 1;
         this.node.scaleX = this.baseScaleX;
         this.node.scaleY = this.baseScaleY;
         this.keys.left = false;
@@ -104,6 +146,10 @@ cc.Class({
         this.damageBlinkDuration = 0;
         this.blinkVisible = true;
         this.localWorldFrozen = false;
+        this.isTransforming = false;
+        this.transformElapsed = 0;
+        this.transformPreviewForm = 'small';
+        this.startedWorldFreeze = false;
         this.currentWorldBounds = this.node.getBoundingBoxToWorld();
         this.previousWorldBounds = cc.rect(
             this.currentWorldBounds.x,
@@ -120,9 +166,7 @@ cc.Class({
             this.body.awake = true;
         }
 
-        if (this.sprite && this.runFrames.length > 0) {
-            this.sprite.spriteFrame = this.runFrames[0];
-        }
+        this.applyForm('small', false);
     },
 
     enableControl(enabled) {
@@ -138,10 +182,17 @@ cc.Class({
     onDestroy() {
         cc.systemEvent.off(cc.SystemEvent.EventType.KEY_DOWN, this._onKeyDown);
         cc.systemEvent.off(cc.SystemEvent.EventType.KEY_UP, this._onKeyUp);
+
+        if (this.startedWorldFreeze) {
+            this.startedWorldFreeze = false;
+            this.resumePhysics();
+            WorldFreezeController.end();
+        }
     },
 
     update(dt) {
         this.updateDamageBlink(dt);
+        this.updateTransformBlink(dt);
         this.previousWorldBounds = this.cloneRect(this.currentWorldBounds || this.node.getBoundingBoxToWorld());
         this.currentWorldBounds = this.node.getBoundingBoxToWorld();
 
@@ -154,6 +205,7 @@ cc.Class({
                 this.body.linearVelocity = cc.v2(0, 0);
             }
             this.lastWorldX = this.node.x;
+            this.updateAnimation(0);
             return;
         }
 
@@ -170,11 +222,11 @@ cc.Class({
         let vx = 0;
         if (this.keys.left) {
             vx -= this.moveSpeed;
-            this.node.scaleX = -this.baseScaleX * this.sizeMultiplier;
+            this.node.scaleX = -this.baseScaleX;
         }
         if (this.keys.right) {
             vx += this.moveSpeed;
-            this.node.scaleX = this.baseScaleX * this.sizeMultiplier;
+            this.node.scaleX = this.baseScaleX;
         }
 
         this.body.linearVelocity = cc.v2(vx, this.body.linearVelocity.y);
@@ -182,7 +234,8 @@ cc.Class({
     },
 
     isWorldFrozen() {
-        return (this.game && this.game.isWorldFrozen && this.game.isWorldFrozen()) || this.localWorldFrozen;
+        const gameFrozen = this.game && this.game.isWorldFrozen && this.game.isWorldFrozen();
+        return !!gameFrozen || this.localWorldFrozen || WorldFreezeController.isFrozen();
     },
 
     takeDamage() {
@@ -238,7 +291,7 @@ cc.Class({
     },
 
     updateDamageBlink(dt) {
-        if (!this.sprite || this.damageBlinkDuration <= 0) {
+        if (!this.sprite || this.damageBlinkDuration <= 0 || this.isTransforming) {
             return;
         }
 
@@ -468,14 +521,15 @@ cc.Class({
     },
 
     updateRunAnimation(actualSpeedX) {
-        if (this.runFrames.length === 0) {
+        const runFrames = this.getRunFramesForCurrentForm();
+        if (runFrames.length === 0) {
             return;
         }
 
         if (Math.abs(actualSpeedX) < 5) {
             this.frameTimer = 0;
             this.frameIndex = 0;
-            this.sprite.spriteFrame = this.runFrames[0];
+            this.sprite.spriteFrame = runFrames[0];
             return;
         }
 
@@ -485,33 +539,34 @@ cc.Class({
         }
 
         this.frameTimer = 0;
-        this.frameIndex = (this.frameIndex + 1) % this.runFrames.length;
-        this.sprite.spriteFrame = this.runFrames[this.frameIndex];
+        this.frameIndex = (this.frameIndex + 1) % runFrames.length;
+        this.sprite.spriteFrame = runFrames[this.frameIndex];
     },
 
     updateJumpAnimation() {
-        if (!this.body || this.jumpFrames.length === 0) {
+        const jumpFrames = this.getJumpFramesForCurrentForm();
+        if (!this.body || jumpFrames.length === 0) {
             return;
         }
 
         const vy = this.body.linearVelocity.y;
 
-        if (this.jumpFrames.length === 1) {
-            this.sprite.spriteFrame = this.jumpFrames[0];
+        if (jumpFrames.length === 1) {
+            this.sprite.spriteFrame = jumpFrames[0];
             return;
         }
 
-        if (this.jumpFrames.length === 2) {
-            this.sprite.spriteFrame = vy >= 0 ? this.jumpFrames[0] : this.jumpFrames[1];
+        if (jumpFrames.length === 2) {
+            this.sprite.spriteFrame = vy >= 0 ? jumpFrames[0] : jumpFrames[1];
             return;
         }
 
         if (vy > 30) {
-            this.sprite.spriteFrame = this.jumpFrames[0];
+            this.sprite.spriteFrame = jumpFrames[0];
         } else if (vy < -30) {
-            this.sprite.spriteFrame = this.jumpFrames[2];
+            this.sprite.spriteFrame = jumpFrames[2];
         } else {
-            this.sprite.spriteFrame = this.jumpFrames[1];
+            this.sprite.spriteFrame = jumpFrames[1];
         }
     },
 
@@ -522,10 +577,62 @@ cc.Class({
     },
 
     growBig() {
-        this.sizeMultiplier = 1.2;
-        const facing = this.node.scaleX < 0 ? -1 : 1;
-        this.node.scaleX = this.baseScaleX * this.sizeMultiplier * facing;
-        this.node.scaleY = this.baseScaleY * this.sizeMultiplier;
+        if (this.isTransforming || this.currentForm === 'big') {
+            return;
+        }
+
+        this.isTransforming = true;
+        this.transformElapsed = 0;
+        this.transformPreviewForm = 'small';
+        this.enableControl(false);
+        this.cachePhysicsGravity();
+        this.pausePhysics();
+        WorldFreezeController.begin();
+        this.startedWorldFreeze = true;
+        this.localWorldFrozen = true;
+
+        if (this.body) {
+            this.body.linearVelocity = cc.v2(0, 0);
+            this.body.angularVelocity = 0;
+        }
+
+        this.applyForm('small', false);
+        this.scheduleOnce(this.finishGrowBig.bind(this), this.transformDuration);
+    },
+
+    finishGrowBig() {
+        this.isTransforming = false;
+        this.transformElapsed = 0;
+        this.transformPreviewForm = 'big';
+        this.resumePhysics();
+        this.scheduleOnce(() => {
+            this.applyForm('big', true);
+
+            if (this.body) {
+                this.body.awake = true;
+            }
+
+            this.localWorldFrozen = false;
+            WorldFreezeController.end();
+            this.startedWorldFreeze = false;
+            this.enableControl(true);
+        }, 0);
+    },
+
+    updateTransformBlink(dt) {
+        if (!this.isTransforming) {
+            return;
+        }
+
+        this.transformElapsed += dt;
+        const blinkStep = Math.floor(this.transformElapsed / Math.max(this.transformBlinkInterval, 0.01));
+        const nextForm = blinkStep % 2 === 0 ? 'small' : 'big';
+        if (nextForm === this.transformPreviewForm) {
+            return;
+        }
+
+        this.transformPreviewForm = nextForm;
+        this.applyForm(nextForm, true);
     },
 
     getCurrentWorldBounds() {
@@ -538,6 +645,153 @@ cc.Class({
 
     cloneRect(rect) {
         return cc.rect(rect.x, rect.y, rect.width, rect.height);
+    },
+
+    cloneSize(size) {
+        return cc.size(size.width, size.height);
+    },
+
+    cloneVec2(vec) {
+        return cc.v2(vec.x, vec.y);
+    },
+
+    getRunFramesForCurrentForm() {
+        if (this.currentForm === 'big' && this.bigRunFrames.length > 0) {
+            return this.bigRunFrames;
+        }
+
+        return this.runFrames;
+    },
+
+    getJumpFramesForCurrentForm() {
+        if (this.currentForm === 'big' && this.bigJumpFrames.length > 0) {
+            return this.bigJumpFrames;
+        }
+
+        return this.jumpFrames;
+    },
+
+    getConfiguredBigVisualSize() {
+        if (this.bigVisualSize.width > 0 && this.bigVisualSize.height > 0) {
+            return this.cloneSize(this.bigVisualSize);
+        }
+
+        const fallbackFrame = this.bigRunFrames[0] || this.bigJumpFrames[0];
+        if (fallbackFrame) {
+            const rawSize = fallbackFrame.getOriginalSize ? fallbackFrame.getOriginalSize() : null;
+            if (rawSize && rawSize.width > 0 && rawSize.height > 0) {
+                return this.cloneSize(rawSize);
+            }
+        }
+
+        return this.cloneSize(this.smallVisualSize);
+    },
+
+    getConfiguredBigColliderSize() {
+        if (this.bigColliderSize.width > 0 && this.bigColliderSize.height > 0) {
+            return this.cloneSize(this.bigColliderSize);
+        }
+
+        const smallVisualSize = this.smallVisualSize;
+        const bigVisualSize = this.getConfiguredBigVisualSize();
+        const widthRatio = smallVisualSize.width > 0 ? bigVisualSize.width / smallVisualSize.width : 1;
+        const heightRatio = smallVisualSize.height > 0 ? bigVisualSize.height / smallVisualSize.height : 1;
+
+        return cc.size(
+            this.smallColliderSize.width * widthRatio,
+            this.smallColliderSize.height * heightRatio
+        );
+    },
+
+    getConfiguredBigColliderOffset() {
+        if (this.bigColliderOffset.x !== 0 || this.bigColliderOffset.y !== 0) {
+            return this.cloneVec2(this.bigColliderOffset);
+        }
+
+        const bigColliderSize = this.getConfiguredBigColliderSize();
+        const smallBottom = this.smallColliderOffset.y - (this.smallColliderSize.height * 0.5);
+        return cc.v2(
+            this.smallColliderOffset.x,
+            smallBottom + (bigColliderSize.height * 0.5)
+        );
+    },
+
+    getFormVisualSize(formName) {
+        return formName === 'big' ? this.getConfiguredBigVisualSize() : this.cloneSize(this.smallVisualSize);
+    },
+
+    getFormColliderSize(formName) {
+        return formName === 'big' ? this.getConfiguredBigColliderSize() : this.cloneSize(this.smallColliderSize);
+    },
+
+    getFormColliderOffset(formName) {
+        return formName === 'big' ? this.getConfiguredBigColliderOffset() : this.cloneVec2(this.smallColliderOffset);
+    },
+
+    getFormBottomLocal(formName) {
+        if (this.boxCollider) {
+            const size = this.getFormColliderSize(formName);
+            const offset = this.getFormColliderOffset(formName);
+            return offset.y - (size.height * 0.5);
+        }
+
+        const visualSize = this.getFormVisualSize(formName);
+        return -visualSize.height * 0.5;
+    },
+
+    applyForm(formName, keepFeetPosition) {
+        const previousForm = this.currentForm;
+        const previousBottom = this.getFormBottomLocal(previousForm);
+        const targetBottom = this.getFormBottomLocal(formName);
+        const visualSize = this.getFormVisualSize(formName);
+        const colliderSize = this.getFormColliderSize(formName);
+        const colliderOffset = this.getFormColliderOffset(formName);
+
+        this.currentForm = formName;
+
+        if (keepFeetPosition) {
+            this.node.y += previousBottom - targetBottom;
+        }
+
+        this.node.setContentSize(visualSize);
+        this.node.width = visualSize.width;
+        this.node.height = visualSize.height;
+
+        if (this.sprite) {
+            this.sprite.sizeMode = cc.Sprite.SizeMode.CUSTOM;
+        }
+
+        if (this.boxCollider) {
+            this.boxCollider.size = cc.size(colliderSize.width, colliderSize.height);
+            this.boxCollider.offset = cc.v2(colliderOffset.x, colliderOffset.y);
+            this.boxCollider.apply();
+        }
+
+        if (this.body) {
+            this.body.awake = true;
+        }
+
+        this.frameTimer = 0;
+        this.frameIndex = 0;
+        this.refreshCurrentFrame(false);
+        this.currentWorldBounds = this.node.getBoundingBoxToWorld();
+        this.previousWorldBounds = this.cloneRect(this.currentWorldBounds);
+    },
+
+    refreshCurrentFrame(forceIdle) {
+        if (!this.sprite) {
+            return;
+        }
+
+        const runFrames = this.getRunFramesForCurrentForm();
+        if (forceIdle || !this.body || this.onGround) {
+            if (runFrames.length > 0) {
+                this.sprite.spriteFrame = runFrames[0];
+            }
+            return;
+        }
+
+        this.updateJumpAnimation();
     },
 
     resolveOneWayPlatformSupport() {

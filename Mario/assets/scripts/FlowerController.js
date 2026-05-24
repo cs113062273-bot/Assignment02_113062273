@@ -1,3 +1,5 @@
+const WorldFreezeController = require('WorldFreezeController');
+
 cc.Class({
     extends: cc.Component,
 
@@ -51,7 +53,7 @@ cc.Class({
     },
 
     update(dt) {
-        if (this.game && this.game.isWorldFrozen && this.game.isWorldFrozen()) {
+        if ((this.game && this.game.isWorldFrozen && this.game.isWorldFrozen()) || WorldFreezeController.isFrozen()) {
             return;
         }
 

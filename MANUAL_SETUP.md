@@ -35,31 +35,7 @@ Create these nodes under `WorldRoot`:
 
 Add component:
 
-- `Game`
 - `Widget`
-
-Drag these references into the `Game` script:
-
-- `StartMenu` -> `startMenu`
-- `LevelSelectMenu` -> `levelSelectMenu`
-- `GameLayer` -> `gameLayer`
-- `HudLayer` -> `hudLayer`
-- `GameOverMenu` -> `gameOverMenu`
-- `ClearMenu` -> `clearMenu`
-- `Player` -> `player`
-- HUD life label -> `lifeLabel`
-- HUD score label -> `scoreLabel`
-- HUD timer label -> `timerLabel`
-- HUD status label -> `statusLabel`
-- Clear panel final score label -> `clearScoreLabel`
-- `resources/audio/bgm_1` -> `bgm`
-- `resources/audio/jump` -> `jumpSfx`
-- `resources/audio/loseOneLife` -> `dieSfx`
-- `resources/audio/stomp` -> `stompSfx`
-- `resources/audio/coin` -> `coinSfx`
-- `resources/audio/PowerUp` -> `powerSfx`
-- `resources/audio/levelClear` -> `clearSfx`
-- `resources/audio/powerUpAppear` -> `blockSfx`
 
 ### `Background`
 

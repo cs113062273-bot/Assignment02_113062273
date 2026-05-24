@@ -67,7 +67,6 @@ This repository contains a Cocos Creator 2.4.8 project at `Mario/`.
 ## Files Added / Updated
 
 - `Mario/assets/game.fire`
-- `Mario/assets/scripts/Game.js`
 - `Mario/settings/project.json`
 - `Mario/assets/resources/*`
 

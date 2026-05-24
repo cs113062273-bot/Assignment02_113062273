@@ -1,4 +1,5 @@
 const GoombaController = require('GoombaController');
+const WorldFreezeController = require('WorldFreezeController');
 
 cc.Class({
     extends: cc.Component,
@@ -48,7 +49,7 @@ cc.Class({
             this.reverseCooldown -= dt;
         }
 
-        if (this.game && this.game.isWorldFrozen()) {
+        if ((this.game && this.game.isWorldFrozen && this.game.isWorldFrozen()) || WorldFreezeController.isFrozen()) {
             this.body.linearVelocity = cc.v2(0, 0);
             return;
         }

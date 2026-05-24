@@ -1,3 +1,5 @@
+const WorldFreezeController = require('WorldFreezeController');
+
 cc.Class({
     extends: cc.Component,
 
@@ -91,7 +93,7 @@ cc.Class({
             this.reverseCooldown -= dt;
         }
 
-        if (this.game && this.game.isWorldFrozen && this.game.isWorldFrozen()) {
+        if ((this.game && this.game.isWorldFrozen && this.game.isWorldFrozen()) || WorldFreezeController.isFrozen()) {
             if (this.body) {
                 this.body.linearVelocity = cc.v2(0, 0);
             }
@@ -157,7 +159,7 @@ cc.Class({
 
         const player = otherCollider.node.getComponent('SimplePlayerController');
         if (player) {
-            this.collect();
+            this.collect(player);
             return;
         }
 
@@ -204,7 +206,7 @@ cc.Class({
         return Math.max((blockHeight * 0.5) + (mushroomHeight * 0.5), 16);
     },
 
-    collect() {
+    collect(player) {
         if (this.isCollected) {
             return;
         }
@@ -213,6 +215,10 @@ cc.Class({
 
         if (this.game && this.game.collectPowerUp) {
             this.game.collectPowerUp();
+        }
+
+        if (player && player.growBig) {
+            player.growBig();
         }
 
         if (this.body) {
