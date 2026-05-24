@@ -153,13 +153,27 @@ cc.Class({
         this.applyCurrentFrame(0, true);
     },
 
-    reverseDirection() {
-        if (this.reverseCooldown > 0) {
+    reverseDirection(force) {
+        if (!force && this.reverseCooldown > 0) {
             return;
         }
 
         this.moveDirection *= -1;
         this.reverseCooldown = 0.1;
+
+        if (!this.body) {
+            return;
+        }
+
+        if (this.state === 'walking') {
+            this.body.linearVelocity = cc.v2(this.moveDirection * this.moveSpeed, this.body.linearVelocity.y);
+            this.node.scaleX = this.moveDirection < 0 ? this.baseScaleX : -this.baseScaleX;
+            return;
+        }
+
+        if (this.state === 'shellMoving') {
+            this.body.linearVelocity = cc.v2(this.moveDirection * this.shellSpeed, this.body.linearVelocity.y);
+        }
     },
 
     breakShell() {

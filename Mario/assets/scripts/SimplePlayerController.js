@@ -91,6 +91,7 @@ cc.Class({
         this.transformElapsed = 0;
         this.transformPreviewForm = 'small';
         this.startedWorldFreeze = false;
+        this.pendingDamageEnemy = null;
         this.spawnPosition = this.spawnPoint ? this.spawnPoint.position.clone() : this.node.position.clone();
         this.smallVisualSize = this.cloneSize(this.node.getContentSize ? this.node.getContentSize() : cc.size(this.node.width, this.node.height));
         this.smallColliderOffset = this.boxCollider ? this.cloneVec2(this.boxCollider.offset) : cc.v2(0, 0);
@@ -150,6 +151,7 @@ cc.Class({
         this.transformElapsed = 0;
         this.transformPreviewForm = 'small';
         this.startedWorldFreeze = false;
+        this.pendingDamageEnemy = null;
         this.currentWorldBounds = this.node.getBoundingBoxToWorld();
         this.previousWorldBounds = cc.rect(
             this.currentWorldBounds.x,
@@ -186,7 +188,7 @@ cc.Class({
         if (this.startedWorldFreeze) {
             this.startedWorldFreeze = false;
             this.resumePhysics();
-            WorldFreezeController.end();
+            WorldFreezeController.reset();
         }
     },
 
@@ -238,13 +240,20 @@ cc.Class({
         return !!gameFrozen || this.localWorldFrozen || WorldFreezeController.isFrozen();
     },
 
-    takeDamage() {
-        if (this.game && this.game.loseLife) {
-            this.game.loseLife();
+    takeDamage(enemy) {
+        if (this.isTransforming || this.damageBlinkDuration > 0 || this.localWorldFrozen) {
             return;
         }
 
-        if (this.localWorldFrozen) {
+        this.pendingDamageEnemy = enemy || null;
+
+        if (this.currentForm === 'big') {
+            this.shrinkToSmall(enemy);
+            return;
+        }
+
+        if (this.game && this.game.loseLife) {
+            this.game.loseLife();
             return;
         }
 
@@ -258,7 +267,46 @@ cc.Class({
             this.resumePhysics();
             this.localWorldFrozen = false;
             this.enableControl(true);
+            WorldFreezeController.reset();
+
+            if (this.body) {
+                this.body.awake = true;
+            }
+
+            this.bumpPendingDamageEnemy();
         }, this.freezeDuration);
+    },
+
+    bumpPendingDamageEnemy() {
+        if (!this.pendingDamageEnemy || !this.pendingDamageEnemy.node || !cc.isValid(this.pendingDamageEnemy.node)) {
+            this.pendingDamageEnemy = null;
+            return;
+        }
+
+        this.bumpDamagingEnemy(this.pendingDamageEnemy);
+        this.pendingDamageEnemy = null;
+    },
+
+    bumpDamagingEnemy(enemy) {
+        if (!enemy || !enemy.reverseDirection || !enemy.node || !cc.isValid(enemy.node)) {
+            return;
+        }
+
+        enemy.reverseDirection(true);
+
+        const moveDir = enemy.moveDirection || (enemy.node.x >= this.node.x ? 1 : -1);
+        enemy.node.setPosition(enemy.node.x + (moveDir * 18), enemy.node.y);
+
+        if (enemy.body) {
+            if (enemy.body.syncPosition) {
+                enemy.body.syncPosition(false);
+            }
+            enemy.body.awake = true;
+            enemy.body.linearVelocity = cc.v2(
+                moveDir * (enemy.shellSpeed || enemy.moveSpeed || 0),
+                enemy.body.linearVelocity.y
+            );
+        }
     },
 
     cachePhysicsGravity() {
@@ -421,7 +469,7 @@ cc.Class({
             } else {
                 const sideResult = turtle.onPlayerSideContact ? turtle.onPlayerSideContact(this.node, normal) : 'damage';
                 if (sideResult === 'damage') {
-                    this.takeDamage();
+                    this.takeDamage(turtle);
                 }
             }
             return;
@@ -439,13 +487,13 @@ cc.Class({
                     this.game.stompEnemy();
                 }
             } else {
-                this.takeDamage();
+                this.takeDamage(goomba);
             }
             return;
         }
 
         if (flower) {
-            this.takeDamage();
+            this.takeDamage(flower);
             return;
         }
 
@@ -613,9 +661,54 @@ cc.Class({
             }
 
             this.localWorldFrozen = false;
-            WorldFreezeController.end();
+            WorldFreezeController.reset();
             this.startedWorldFreeze = false;
             this.enableControl(true);
+        }, 0);
+    },
+
+    shrinkToSmall(enemy) {
+        if (this.isTransforming || this.currentForm !== 'big') {
+            return;
+        }
+
+        this.isTransforming = true;
+        this.transformElapsed = 0;
+        this.transformPreviewForm = 'big';
+        this.enableControl(false);
+        this.cachePhysicsGravity();
+        this.pausePhysics();
+        WorldFreezeController.begin();
+        this.startedWorldFreeze = true;
+        this.localWorldFrozen = true;
+
+        if (this.body) {
+            this.body.linearVelocity = cc.v2(0, 0);
+            this.body.angularVelocity = 0;
+        }
+
+        this.applyForm('big', false);
+        this.scheduleOnce(this.finishShrinkSmall.bind(this), this.transformDuration);
+    },
+
+    finishShrinkSmall() {
+        this.isTransforming = false;
+        this.transformElapsed = 0;
+        this.transformPreviewForm = 'small';
+        this.resumePhysics();
+        this.scheduleOnce(() => {
+            this.applyForm('small', true);
+            this.beginDamageBlink(this.freezeDuration);
+
+            if (this.body) {
+                this.body.awake = true;
+            }
+
+            this.localWorldFrozen = false;
+            WorldFreezeController.reset();
+            this.startedWorldFreeze = false;
+            this.enableControl(true);
+            this.bumpPendingDamageEnemy();
         }, 0);
     },
 

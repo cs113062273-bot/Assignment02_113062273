@@ -70,6 +70,11 @@ module.exports = {
         }
     },
 
+    reset() {
+        state.freezeCount = 0;
+        resumeSceneActions();
+    },
+
     isFrozen() {
         return state.freezeCount > 0;
     }

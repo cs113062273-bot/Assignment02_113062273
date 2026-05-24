@@ -89,13 +89,19 @@ cc.Class({
         }
     },
 
-    reverseDirection() {
-        if (this.reverseCooldown > 0) {
+    reverseDirection(force) {
+        if (!force && this.reverseCooldown > 0) {
             return;
         }
 
         this.moveDirection *= -1;
         this.reverseCooldown = 0.12;
+
+        if (this.body) {
+            this.body.linearVelocity = cc.v2(this.moveDirection * this.moveSpeed, this.body.linearVelocity.y);
+        }
+
+        this.node.scaleX = this.moveDirection < 0 ? this.baseScaleX : -this.baseScaleX;
     },
 
     getCurrentMoveFrames() {
