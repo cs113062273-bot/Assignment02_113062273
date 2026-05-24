@@ -29,11 +29,17 @@ cc.Class({
         loadingDelay: {
             default: 0.45
         },
+        gameStartScene: {
+            default: 'gameStart'
+        },
         stage1Scene: {
             default: 'stage1'
         },
         stage2Scene: {
             default: ''
+        },
+        gameOverScene: {
+            default: 'gameOver'
         },
         nextScene: {
             default: 'stageSelect'
@@ -55,7 +61,7 @@ cc.Class({
     },
 
     preloadStageScenes() {
-        [this.stage1Scene, this.stage2Scene].forEach((sceneName) => {
+        [this.gameStartScene, this.stage1Scene, this.stage2Scene, this.gameOverScene].forEach((sceneName) => {
             if (!sceneName) {
                 return;
             }
@@ -293,7 +299,7 @@ cc.Class({
     },
 
     onClickStage1() {
-        this.loadSceneWithLoading(this.stage1Scene || this.nextScene);
+        this.gotoGameStart(this.stage1Scene || this.nextScene);
     },
 
     onClickStage2() {
@@ -302,7 +308,20 @@ cc.Class({
             return;
         }
 
-        this.loadSceneWithLoading(this.stage2Scene);
+        this.gotoGameStart(this.stage2Scene);
+    },
+
+    gotoGameStart(targetScene) {
+        if (!targetScene) {
+            return;
+        }
+
+        cc.sys.localStorage.setItem('mario-next-stage-scene', targetScene);
+        if (this.gameOverScene) {
+            cc.sys.localStorage.setItem('mario-game-over-scene', this.gameOverScene);
+        }
+
+        this.loadSceneWithLoading(this.gameStartScene || targetScene);
     },
 
     onClickEnterLogin() {

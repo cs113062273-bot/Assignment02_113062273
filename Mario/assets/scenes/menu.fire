@@ -10610,8 +10610,10 @@
       "__id__": 167
     },
     "loadingDelay": 0.45,
+    "gameStartScene": "gameStart",
     "stage1Scene": "stage1",
-    "stage2Scene": "",
+    "stage2Scene": "stage2",
+    "gameOverScene": "gameOver",
     "nextScene": "stageSelect",
     "_id": "9a2cLhPqpIr43KIgq4idHI"
   }

@@ -10344,6 +10344,12 @@
     "moveSpriteFrame": {
       "__uuid__": "6a4de187-a804-4f1d-ab8d-ab774f2cf984"
     },
+    "moveSpriteFrame1": {
+      "__uuid__": "6a4de187-a804-4f1d-ab8d-ab774f2cf984"
+    },
+    "moveSpriteFrame2": {
+      "__uuid__": "b099f546-a607-4724-bb2f-80830364b28e"
+    },
     "deadSpriteFrame": {
       "__uuid__": "47c1e2a2-bdec-4b36-bb5a-b36e9bcc6897"
     },
