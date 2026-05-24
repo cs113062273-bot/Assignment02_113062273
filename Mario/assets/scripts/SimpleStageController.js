@@ -1,7 +1,10 @@
+const firebaseAuth = require('FirebaseAuth');
 const STATE_KEY = 'mario-runtime-state';
 const NEXT_STAGE_KEY = 'mario-next-stage-scene';
 const GAME_OVER_KEY = 'mario-game-over-scene';
 const MENU_STAGE_SELECT_KEY = 'mario-open-stage-select';
+const AUTH_KEY = 'mario-auth';
+const FIRESTORE_ERROR_KEY = 'mario-firestore-last-error';
 
 cc.Class({
     extends: cc.Component,
@@ -91,7 +94,7 @@ cc.Class({
         this.restoreRuntimeState();
         this.bindPlayerController();
         this.updateAllUi();
-        this.persistRuntimeState();
+        this.commitLifeStartState();
     },
 
     update(dt) {
@@ -163,12 +166,7 @@ cc.Class({
     },
 
     restoreRuntimeState() {
-        const fallbackState = {
-            lives: this.initialLives,
-            coins: 0,
-            score: 0,
-            stage1Cleared: false
-        };
+        const fallbackState = this.getDefaultRuntimeState();
         const raw = cc.sys.localStorage.getItem(STATE_KEY);
         if (!raw) {
             this.applyRuntimeState(fallbackState);
@@ -182,19 +180,41 @@ cc.Class({
                 return;
             }
 
-            this.applyRuntimeState(parsed);
+            this.applyRuntimeState(this.buildRuntimeState(parsed));
         } catch (error) {
             this.applyRuntimeState(fallbackState);
         }
     },
 
+    getDefaultRuntimeState() {
+        return {
+            lives: this.initialLives,
+            coins: 0,
+            score: 0,
+            stage1Cleared: false
+        };
+    },
+
+    buildRuntimeState(state) {
+        const fallbackState = this.getDefaultRuntimeState();
+        const source = state || {};
+        return {
+            lives: this.sanitizeNumber(source.lives, fallbackState.lives),
+            coins: this.sanitizeNumber(source.coins, fallbackState.coins),
+            score: this.sanitizeNumber(source.score, fallbackState.score),
+            stage1Cleared: !!source.stage1Cleared
+        };
+    },
+
     applyRuntimeState(state) {
-        this.lives = this.sanitizeNumber(state && state.lives, this.initialLives);
-        this.coins = this.sanitizeNumber(state && state.coins, 0);
-        this.score = this.sanitizeNumber(state && state.score, 0);
-        this.stage1Cleared = !!(state && state.stage1Cleared);
+        const runtimeState = this.buildRuntimeState(state);
+        this.lives = runtimeState.lives;
+        this.coins = runtimeState.coins;
+        this.score = runtimeState.score;
+        this.stage1Cleared = runtimeState.stage1Cleared;
         this.remainingTime = this.initialTime;
         this.timerAccumulator = 0;
+        this.lifeStartState = runtimeState;
     },
 
     sanitizeNumber(value, fallback) {
@@ -282,7 +302,6 @@ cc.Class({
     collectCoin() {
         this.coins += 1;
         this.updateCoinUi();
-        this.persistRuntimeState();
     },
 
     collectPowerUp(source) {
@@ -305,7 +324,6 @@ cc.Class({
 
         this.score += delta;
         this.updateScoreUi();
-        this.persistRuntimeState();
 
         if (source) {
             this.spawnScorePopup(delta, source, offsetY);
@@ -323,7 +341,7 @@ cc.Class({
         }
         this.pauseStageBgm();
         this.addScore(this.remainingTime * this.clearTimeBonusMultiplier);
-        this.persistRuntimeState();
+        this.commitProgressState(this.getCurrentRuntimeState());
         this.scheduleOnce(() => {
             this.goToStageSelectMenu();
         }, this.levelClearReturnDelay);
@@ -341,9 +359,18 @@ cc.Class({
         this.playerDying = true;
         this.worldFrozen = true;
         this.pauseStageBgm();
-        this.lives = Math.max(0, this.lives - 1);
+        const nextLifeState = this.getCurrentRuntimeState();
+        nextLifeState.lives = Math.max(0, nextLifeState.lives - 1);
+
+        this.lives = nextLifeState.lives;
         this.updateLifeUi();
-        this.persistRuntimeState();
+
+        if (nextLifeState.lives > 0) {
+            this.commitProgressState(nextLifeState);
+        } else {
+            cc.sys.localStorage.removeItem(STATE_KEY);
+            this.clearCloudProgress();
+        }
 
         const player = this.getPlayerController();
         if (player && player.playDeathAnimation) {
@@ -366,7 +393,6 @@ cc.Class({
     },
 
     restartSceneFromGameStart() {
-        this.persistRuntimeState();
         cc.sys.localStorage.setItem(NEXT_STAGE_KEY, this.sceneName);
         cc.director.loadScene(this.gameStartScene || this.sceneName);
     },
@@ -376,12 +402,14 @@ cc.Class({
         cc.sys.localStorage.removeItem(NEXT_STAGE_KEY);
         cc.sys.localStorage.setItem(MENU_STAGE_SELECT_KEY, '1');
         const gameOverScene = cc.sys.localStorage.getItem(GAME_OVER_KEY) || this.defaultGameOverScene;
-        cc.director.loadScene(gameOverScene || 'menu');
+        this.clearCloudProgress().then(() => {
+            cc.director.loadScene(gameOverScene || 'menu');
+        });
     },
 
     goToStageSelectMenu() {
         cc.sys.localStorage.removeItem(NEXT_STAGE_KEY);
-        this.persistRuntimeState();
+        this.commitProgressState(this.getCurrentRuntimeState());
         cc.sys.localStorage.setItem(MENU_STAGE_SELECT_KEY, '1');
         cc.director.loadScene(this.menuScene || 'menu');
     },
@@ -445,14 +473,78 @@ cc.Class({
         return null;
     },
 
-    persistRuntimeState() {
-        const payload = {
+    getCurrentRuntimeState() {
+        return this.buildRuntimeState({
             lives: this.lives,
             coins: this.coins,
             score: this.score,
-            stage1Cleared: !!this.stage1Cleared
-        };
+            stage1Cleared: this.stage1Cleared
+        });
+    },
+
+    readSession() {
+        const raw = cc.sys.localStorage.getItem(AUTH_KEY);
+        if (!raw) {
+            return null;
+        }
+
+        try {
+            return JSON.parse(raw);
+        } catch (error) {
+            return null;
+        }
+    },
+
+    saveSession(session) {
+        if (!session) {
+            return;
+        }
+
+        cc.sys.localStorage.setItem(AUTH_KEY, JSON.stringify(session));
+    },
+
+    commitLifeStartState() {
+        this.commitProgressState(this.getCurrentRuntimeState());
+    },
+
+    commitProgressState(state) {
+        const payload = this.buildRuntimeState(state);
+        this.lifeStartState = payload;
         cc.sys.localStorage.setItem(STATE_KEY, JSON.stringify(payload));
+
+        const session = this.readSession();
+        if (!session) {
+            return Promise.resolve(payload);
+        }
+
+        return firebaseAuth.saveProgress(session, payload)
+            .then((freshSession) => {
+                this.saveSession(freshSession);
+                cc.sys.localStorage.removeItem(FIRESTORE_ERROR_KEY);
+                return payload;
+            })
+            .catch((error) => {
+                cc.sys.localStorage.setItem(FIRESTORE_ERROR_KEY, String(error && (error.userMessage || error.message || error)));
+                cc.warn('Failed to save cloud progress:', error);
+                return payload;
+            });
+    },
+
+    clearCloudProgress() {
+        const session = this.readSession();
+        if (!session) {
+            return Promise.resolve();
+        }
+
+        return firebaseAuth.clearProgress(session)
+            .then((freshSession) => {
+                this.saveSession(freshSession);
+                cc.sys.localStorage.removeItem(FIRESTORE_ERROR_KEY);
+            })
+            .catch((error) => {
+                cc.sys.localStorage.setItem(FIRESTORE_ERROR_KEY, String(error && (error.userMessage || error.message || error)));
+                cc.warn('Failed to clear cloud progress:', error);
+            });
     },
 
     updateAllUi() {

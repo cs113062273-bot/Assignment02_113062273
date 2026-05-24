@@ -10,7 +10,8 @@ function makeError(message) {
     return error;
 }
 
-function requestJson(url, options) {
+function requestJson(url, options, behavior) {
+    const settings = behavior || {};
     return fetch(url, options).then((response) => {
         return response.text().then((text) => {
             let json = null;
@@ -20,6 +21,10 @@ function requestJson(url, options) {
                 } catch (error) {
                     json = null;
                 }
+            }
+
+            if (settings.allowNotFound && response.status === 404) {
+                return null;
             }
 
             if (!response.ok) {
@@ -51,6 +56,7 @@ class FirebaseAuth {
     constructor() {
         this.apiKey = config.apiKey;
         this.databaseURL = config.databaseURL ? config.databaseURL.replace(/\/+$/, '') : '';
+        this.projectId = config.projectId || this.inferProjectId(this.databaseURL);
     }
 
     isConfigured() {
@@ -63,8 +69,28 @@ class FirebaseAuth {
         }
     }
 
+    ensureFirestoreConfigured() {
+        this.ensureConfigured();
+        if (!this.projectId) {
+            throw makeError('Firebase projectId is missing.');
+        }
+    }
+
+    inferProjectId(databaseURL) {
+        const match = String(databaseURL || '').match(/^https:\/\/([^.]+)\.firebaseio\.com/i);
+        if (!match) {
+            return '';
+        }
+
+        return match[1].replace(/-default-rtdb$/i, '');
+    }
+
     getIdentityUrl(path) {
         return `https://identitytoolkit.googleapis.com/v1/${path}?key=${this.apiKey}`;
+    }
+
+    getRefreshUrl() {
+        return `https://securetoken.googleapis.com/v1/token?key=${this.apiKey}`;
     }
 
     getDbUrl(path, authToken) {
@@ -74,6 +100,128 @@ class FirebaseAuth {
         }
 
         return `${baseUrl}?auth=${encodeURIComponent(authToken)}`;
+    }
+
+    getFirestoreUrl(path) {
+        return `https://firestore.googleapis.com/v1/projects/${this.projectId}/databases/(default)/documents/${path}`;
+    }
+
+    getProgressDocumentPath(uid) {
+        return `marioProgress/${uid}`;
+    }
+
+    buildProgressState(state) {
+        const source = state || {};
+        return {
+            lives: Math.max(0, Math.floor(Number(source.lives) || 0)),
+            coins: Math.max(0, Math.floor(Number(source.coins) || 0)),
+            score: Math.max(0, Math.floor(Number(source.score) || 0)),
+            stage1Cleared: !!source.stage1Cleared
+        };
+    }
+
+    buildProgressDocument(state) {
+        return {
+            fields: {
+                payload: {
+                    stringValue: JSON.stringify(this.buildProgressState(state))
+                },
+                updatedAt: {
+                    timestampValue: new Date().toISOString()
+                }
+            }
+        };
+    }
+
+    parseProgressDocument(document) {
+        if (!document || !document.fields || !document.fields.payload) {
+            return null;
+        }
+
+        const raw = document.fields.payload.stringValue;
+        if (!raw) {
+            return null;
+        }
+
+        try {
+            return this.buildProgressState(JSON.parse(raw));
+        } catch (error) {
+            return null;
+        }
+    }
+
+    refreshSession(session) {
+        this.ensureConfigured();
+        if (!session || !session.refreshToken) {
+            return Promise.reject(makeError('Missing refresh token.'));
+        }
+
+        return requestJson(this.getRefreshUrl(), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(session.refreshToken)}`
+        }).then((data) => {
+            return {
+                uid: data.user_id || session.uid,
+                email: session.email,
+                username: session.username,
+                idToken: data.id_token || session.idToken,
+                refreshToken: data.refresh_token || session.refreshToken
+            };
+        });
+    }
+
+    loadProgress(session) {
+        this.ensureFirestoreConfigured();
+        return this.refreshSession(session).then((freshSession) => {
+            return requestJson(this.getFirestoreUrl(this.getProgressDocumentPath(freshSession.uid)), {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${freshSession.idToken}`
+                }
+            }, {
+                allowNotFound: true
+            }).then((document) => {
+                return {
+                    session: freshSession,
+                    state: this.parseProgressDocument(document)
+                };
+            });
+        });
+    }
+
+    saveProgress(session, state) {
+        this.ensureFirestoreConfigured();
+        return this.refreshSession(session).then((freshSession) => {
+            return requestJson(this.getFirestoreUrl(this.getProgressDocumentPath(freshSession.uid)), {
+                method: 'PATCH',
+                headers: {
+                    Authorization: `Bearer ${freshSession.idToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(this.buildProgressDocument(state))
+            }).then(() => {
+                return freshSession;
+            });
+        });
+    }
+
+    clearProgress(session) {
+        this.ensureFirestoreConfigured();
+        return this.refreshSession(session).then((freshSession) => {
+            return requestJson(this.getFirestoreUrl(this.getProgressDocumentPath(freshSession.uid)), {
+                method: 'DELETE',
+                headers: {
+                    Authorization: `Bearer ${freshSession.idToken}`
+                }
+            }, {
+                allowNotFound: true
+            }).then(() => {
+                return freshSession;
+            });
+        });
     }
 
     getUsernameRecord(username) {

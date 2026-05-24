@@ -1,6 +1,7 @@
 const firebaseAuth = require('FirebaseAuth');
 const RUNTIME_STATE_KEY = 'mario-runtime-state';
 const MENU_STAGE_SELECT_KEY = 'mario-open-stage-select';
+const AUTH_KEY = 'mario-auth';
 
 cc.Class({
     extends: cc.Component,
@@ -67,6 +68,7 @@ cc.Class({
 
         if (this.consumeStageSelectRequest()) {
             this.showStageSelectDirect();
+            this.refreshRunStateFromCloud();
         }
     },
 
@@ -207,7 +209,7 @@ cc.Class({
     },
 
     readSession() {
-        const raw = cc.sys.localStorage.getItem('mario-auth');
+        const raw = cc.sys.localStorage.getItem(AUTH_KEY);
         if (!raw) {
             return null;
         }
@@ -220,33 +222,43 @@ cc.Class({
     },
 
     readRunState() {
-        const fallbackState = {
-            lives: 5,
-            coins: 0,
-            score: 0,
-            stage1Cleared: false
-        };
-
+        const fallbackState = this.getDefaultRunState();
         const raw = cc.sys.localStorage.getItem(RUNTIME_STATE_KEY);
         if (!raw) {
             return fallbackState;
         }
 
         try {
-            const parsed = JSON.parse(raw);
-            if (!parsed) {
-                return fallbackState;
-            }
-
-            return {
-                lives: this.sanitizeNumber(parsed.lives, fallbackState.lives),
-                coins: this.sanitizeNumber(parsed.coins, fallbackState.coins),
-                score: this.sanitizeNumber(parsed.score, fallbackState.score),
-                stage1Cleared: !!parsed.stage1Cleared
-            };
+            return this.normalizeRunState(JSON.parse(raw));
         } catch (error) {
             return fallbackState;
         }
+    },
+
+    getDefaultRunState() {
+        return {
+            lives: 5,
+            coins: 0,
+            score: 0,
+            stage1Cleared: false
+        };
+    },
+
+    normalizeRunState(state) {
+        const fallbackState = this.getDefaultRunState();
+        const source = state || {};
+        return {
+            lives: this.sanitizeNumber(source.lives, fallbackState.lives),
+            coins: this.sanitizeNumber(source.coins, fallbackState.coins),
+            score: this.sanitizeNumber(source.score, fallbackState.score),
+            stage1Cleared: !!source.stage1Cleared
+        };
+    },
+
+    writeRunState(state) {
+        const normalized = this.normalizeRunState(state);
+        cc.sys.localStorage.setItem(RUNTIME_STATE_KEY, JSON.stringify(normalized));
+        return normalized;
     },
 
     sanitizeNumber(value, fallback) {
@@ -327,6 +339,28 @@ cc.Class({
         this.updateStage2Availability(runState);
     },
 
+    refreshRunStateFromCloud() {
+        if (!this.currentSession) {
+            return Promise.resolve(this.readRunState());
+        }
+
+        return firebaseAuth.loadProgress(this.currentSession)
+            .then((result) => {
+                this.saveSession(result.session);
+                const runState = this.writeRunState(result.state || this.getDefaultRunState());
+                this.updateStageSelectStats(runState);
+                this.updateStage2Availability(runState);
+                return runState;
+            })
+            .catch((error) => {
+                cc.warn('Failed to restore cloud progress:', error);
+                const runState = this.readRunState();
+                this.updateStageSelectStats(runState);
+                this.updateStage2Availability(runState);
+                return runState;
+            });
+    },
+
     onClickLogin() {
         this.setStageSelectVisible(false);
         this.setLoadingVisible(false);
@@ -379,7 +413,7 @@ cc.Class({
         }
 
         this.currentSession = session;
-        cc.sys.localStorage.setItem('mario-auth', JSON.stringify(session));
+        cc.sys.localStorage.setItem(AUTH_KEY, JSON.stringify(session));
     },
 
     gotoNextScene() {
@@ -389,15 +423,15 @@ cc.Class({
             this.setRuleVisible(false);
             this.setStageSelectVisible(false);
             this.setLoadingVisible(true);
-
-            this.scheduleOnce(function () {
-                this.setLoadingVisible(false);
-                this.setStageSelectVisible(true);
-                this.updateStageSelectUser(this.currentSession);
-                const runState = this.readRunState();
-                this.updateStageSelectStats(runState);
-                this.updateStage2Availability(runState);
-            }, this.loadingDelay);
+            this.refreshRunStateFromCloud().then((runState) => {
+                this.scheduleOnce(function () {
+                    this.setLoadingVisible(false);
+                    this.setStageSelectVisible(true);
+                    this.updateStageSelectUser(this.currentSession);
+                    this.updateStageSelectStats(runState);
+                    this.updateStage2Availability(runState);
+                }, this.loadingDelay);
+            });
             return;
         }
 
@@ -447,7 +481,16 @@ cc.Class({
         }
 
         if (targetScene === this.stage1Scene) {
-            cc.sys.localStorage.removeItem(RUNTIME_STATE_KEY);
+            const defaultRunState = this.writeRunState(this.getDefaultRunState());
+            if (this.currentSession) {
+                firebaseAuth.saveProgress(this.currentSession, defaultRunState)
+                    .then((freshSession) => {
+                        this.saveSession(freshSession);
+                    })
+                    .catch((error) => {
+                        cc.warn('Failed to reset cloud progress for stage 1:', error);
+                    });
+            }
         }
         cc.sys.localStorage.setItem('mario-next-stage-scene', targetScene);
         if (this.gameOverScene) {
