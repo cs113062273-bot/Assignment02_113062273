@@ -26,6 +26,14 @@ cc.Class({
         stage2ButtonNode: cc.Node,
         stage2LockedSpriteFrame: cc.SpriteFrame,
         ruleNode: cc.Node,
+        leaderboardBulletinNode: cc.Node,
+        leaderboardButtonNode: cc.Node,
+        leaderboardFirstUserLabel: cc.Label,
+        leaderboardFirstScoreLabel: cc.Label,
+        leaderboardSecondUserLabel: cc.Label,
+        leaderboardSecondScoreLabel: cc.Label,
+        leaderboardThirdUserLabel: cc.Label,
+        leaderboardThirdScoreLabel: cc.Label,
         loginUsernameInput: cc.EditBox,
         loginPasswordInput: cc.EditBox,
         signupEmailInput: cc.EditBox,
@@ -55,6 +63,8 @@ cc.Class({
 
     onLoad() {
         this.currentSession = this.readSession();
+        this.leaderboardEntriesCache = [];
+        this.leaderboardRequest = null;
         this.resolveStageSelectReferences();
         this.bindStageSelectButtons();
         this.setEnterLayerVisible(true);
@@ -62,13 +72,16 @@ cc.Class({
         this.setStageSelectVisible(false);
         this.setLoadingVisible(false);
         this.setRuleVisible(false);
+        this.setLeaderboardVisible(false);
         this.showLoginMessage('');
         this.showSignupMessage('');
         this.preloadStageScenes();
 
         if (this.consumeStageSelectRequest()) {
             this.showStageSelectDirect();
-            this.refreshRunStateFromCloud();
+            this.refreshRunStateFromCloud().then(() => {
+                this.preloadLeaderboardData();
+            });
         }
     },
 
@@ -129,6 +142,12 @@ cc.Class({
         }
     },
 
+    setLeaderboardVisible(visible) {
+        if (this.leaderboardBulletinNode) {
+            this.leaderboardBulletinNode.active = visible;
+        }
+    },
+
     resolveStageSelectReferences() {
         this.enterLayerNode = this.enterLayerNode || this.findNode('EnterLayer');
         this.stageSelectLayer = this.stageSelectLayer || this.findNode('StageSelectLayer');
@@ -137,6 +156,8 @@ cc.Class({
         this.stage1ButtonNode = this.stage1ButtonNode || this.findNode('StageSelectLayer/Stage1Button');
         this.stage2ButtonNode = this.stage2ButtonNode || this.findNode('StageSelectLayer/Stage2Button');
         this.ruleNode = this.ruleNode || this.findNode('StageSelectLayer/Rule');
+        this.leaderboardBulletinNode = this.leaderboardBulletinNode || this.findNode('StageSelectLayer/Leaderboard bulletin');
+        this.leaderboardButtonNode = this.leaderboardButtonNode || this.findNode('StageSelectLayer/Leaderboard button');
 
         if (!this.enterLayerNode && this.titleNode && this.titleNode.parent) {
             this.enterLayerNode = this.titleNode.parent;
@@ -167,6 +188,13 @@ cc.Class({
             this.stageSelectScoreValueLabel = scoreValueNode ? scoreValueNode.getComponent(cc.Label) : null;
         }
 
+        this.leaderboardFirstUserLabel = this.leaderboardFirstUserLabel || this.findLabel('StageSelectLayer/Leaderboard bulletin/First/U1');
+        this.leaderboardFirstScoreLabel = this.leaderboardFirstScoreLabel || this.findLabel('StageSelectLayer/Leaderboard bulletin/First/S1');
+        this.leaderboardSecondUserLabel = this.leaderboardSecondUserLabel || this.findLabel('StageSelectLayer/Leaderboard bulletin/Second/U1');
+        this.leaderboardSecondScoreLabel = this.leaderboardSecondScoreLabel || this.findLabel('StageSelectLayer/Leaderboard bulletin/Second/S1');
+        this.leaderboardThirdUserLabel = this.leaderboardThirdUserLabel || this.findLabel('StageSelectLayer/Leaderboard bulletin/Third/U1');
+        this.leaderboardThirdScoreLabel = this.leaderboardThirdScoreLabel || this.findLabel('StageSelectLayer/Leaderboard bulletin/Third/S1');
+
         this.stage2Button = this.stage2ButtonNode ? this.stage2ButtonNode.getComponent(cc.Button) : null;
         this.stage2ButtonTargetSprite = this.stage2Button && this.stage2Button.target
             ? this.stage2Button.target.getComponent(cc.Sprite)
@@ -193,10 +221,16 @@ cc.Class({
         return current || null;
     },
 
+    findLabel(path) {
+        const node = this.findNode(path);
+        return node ? node.getComponent(cc.Label) : null;
+    },
+
     bindStageSelectButtons() {
         this.bindButtonNode(this.questionBoxNode, this.onClickQuestionBox);
         this.bindButtonNode(this.stage1ButtonNode, this.onClickStage1);
         this.bindButtonNode(this.stage2ButtonNode, this.onClickStage2);
+        this.bindButtonNode(this.leaderboardButtonNode, this.onClickLeaderboardButton);
     },
 
     bindButtonNode(node, handler) {
@@ -331,12 +365,88 @@ cc.Class({
         this.hideAllPopups();
         this.setEnterLayerVisible(false);
         this.setRuleVisible(false);
+        this.setLeaderboardVisible(false);
         this.setLoadingVisible(false);
         this.setStageSelectVisible(true);
         this.updateStageSelectUser(this.currentSession);
         const runState = this.readRunState();
         this.updateStageSelectStats(runState);
         this.updateStage2Availability(runState);
+    },
+
+    getLeaderboardLabels() {
+        return [
+            {
+                user: this.leaderboardFirstUserLabel,
+                score: this.leaderboardFirstScoreLabel
+            },
+            {
+                user: this.leaderboardSecondUserLabel,
+                score: this.leaderboardSecondScoreLabel
+            },
+            {
+                user: this.leaderboardThirdUserLabel,
+                score: this.leaderboardThirdScoreLabel
+            }
+        ];
+    },
+
+    updateLeaderboardEntries(entries) {
+        const rows = Array.isArray(entries) ? entries : [];
+        this.getLeaderboardLabels().forEach((row, index) => {
+            const entry = rows[index] || null;
+            const username = entry && entry.username ? String(entry.username).toUpperCase() : '---';
+            const score = entry ? String(this.sanitizeNumber(entry.score, 0)) : '0';
+
+            if (row.user) {
+                row.user.string = username;
+            }
+
+            if (row.score) {
+                row.score.string = score;
+            }
+        });
+    },
+
+    preloadLeaderboardData() {
+        if (!this.currentSession) {
+            this.leaderboardEntriesCache = [];
+            this.updateLeaderboardEntries([]);
+            return Promise.resolve([]);
+        }
+
+        if (this.leaderboardRequest) {
+            return this.leaderboardRequest;
+        }
+
+        this.leaderboardRequest = firebaseAuth.saveProgress(this.currentSession, this.readRunState())
+            .then((freshSession) => {
+                this.saveSession(freshSession);
+                return firebaseAuth.loadLeaderboard(freshSession);
+            })
+            .then((result) => {
+                this.saveSession(result.session);
+                this.leaderboardEntriesCache = Array.isArray(result.entries) ? result.entries : [];
+                return this.leaderboardEntriesCache;
+            })
+            .catch((error) => {
+                cc.warn('Failed to preload leaderboard:', error);
+                this.leaderboardEntriesCache = [];
+                return this.leaderboardEntriesCache;
+            })
+            .then((entries) => {
+                this.leaderboardRequest = null;
+                return entries;
+            });
+
+        return this.leaderboardRequest;
+    },
+
+    loadLeaderboard() {
+        return this.preloadLeaderboardData().then((entries) => {
+            this.updateLeaderboardEntries(entries);
+            return entries;
+        });
     },
 
     refreshRunStateFromCloud() {
@@ -365,6 +475,7 @@ cc.Class({
         this.setStageSelectVisible(false);
         this.setLoadingVisible(false);
         this.setRuleVisible(false);
+        this.setLeaderboardVisible(false);
         this.hideAllPopups();
         this.showLoginMessage('');
         this.setHomeVisible(false);
@@ -377,6 +488,7 @@ cc.Class({
         this.setStageSelectVisible(false);
         this.setLoadingVisible(false);
         this.setRuleVisible(false);
+        this.setLeaderboardVisible(false);
         this.hideAllPopups();
         this.showSignupMessage('');
         this.setHomeVisible(false);
@@ -421,9 +533,14 @@ cc.Class({
             this.hideAllPopups();
             this.setEnterLayerVisible(false);
             this.setRuleVisible(false);
+            this.setLeaderboardVisible(false);
             this.setStageSelectVisible(false);
             this.setLoadingVisible(true);
             this.refreshRunStateFromCloud().then((runState) => {
+                return this.preloadLeaderboardData().then(() => {
+                    return runState;
+                });
+            }).then((runState) => {
                 this.scheduleOnce(function () {
                     this.setLoadingVisible(false);
                     this.setStageSelectVisible(true);
@@ -446,6 +563,7 @@ cc.Class({
         this.hideAllPopups();
         this.setEnterLayerVisible(false);
         this.setRuleVisible(false);
+        this.setLeaderboardVisible(false);
         this.setStageSelectVisible(false);
         this.setLoadingVisible(true);
 
@@ -459,7 +577,29 @@ cc.Class({
             return;
         }
 
+        if (!this.ruleNode.active) {
+            this.setLeaderboardVisible(false);
+        }
         this.setRuleVisible(!this.ruleNode.active);
+    },
+
+    onClickLeaderboardButton() {
+        if (!this.leaderboardBulletinNode) {
+            return;
+        }
+
+        const shouldOpen = !this.leaderboardBulletinNode.active;
+        if (shouldOpen) {
+            this.setRuleVisible(false);
+            this.updateLeaderboardEntries(this.leaderboardEntriesCache);
+            this.preloadLeaderboardData().then((entries) => {
+                if (this.leaderboardBulletinNode && this.leaderboardBulletinNode.active) {
+                    this.updateLeaderboardEntries(entries);
+                }
+            });
+        }
+
+        this.setLeaderboardVisible(shouldOpen);
     },
 
     onClickStage1() {

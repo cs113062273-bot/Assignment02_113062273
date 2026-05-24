@@ -110,6 +110,10 @@ class FirebaseAuth {
         return `marioProgress/${uid}`;
     }
 
+    getLeaderboardDocumentPath(uid) {
+        return `marioLeaderboard/${uid}`;
+    }
+
     buildProgressState(state) {
         const source = state || {};
         return {
@@ -121,10 +125,40 @@ class FirebaseAuth {
     }
 
     buildProgressDocument(state) {
+        const payload = this.buildProgressState(state);
         return {
             fields: {
+                uid: {
+                    stringValue: String((state && state.uid) || '')
+                },
+                username: {
+                    stringValue: String((state && state.username) || 'UNKNOWN')
+                },
                 payload: {
-                    stringValue: JSON.stringify(this.buildProgressState(state))
+                    stringValue: JSON.stringify(payload)
+                },
+                score: {
+                    integerValue: String(payload.score)
+                },
+                updatedAt: {
+                    timestampValue: new Date().toISOString()
+                }
+            }
+        };
+    }
+
+    buildLeaderboardDocument(session, state) {
+        const payload = this.buildProgressState(state);
+        return {
+            fields: {
+                uid: {
+                    stringValue: String((session && session.uid) || '')
+                },
+                username: {
+                    stringValue: String((session && session.username) || 'UNKNOWN')
+                },
+                score: {
+                    integerValue: String(payload.score)
                 },
                 updatedAt: {
                     timestampValue: new Date().toISOString()
@@ -148,6 +182,31 @@ class FirebaseAuth {
         } catch (error) {
             return null;
         }
+    }
+
+    parseIntegerField(fieldValue) {
+        if (!fieldValue) {
+            return 0;
+        }
+
+        if (typeof fieldValue.integerValue !== 'undefined') {
+            return Math.max(0, Math.floor(Number(fieldValue.integerValue) || 0));
+        }
+
+        if (typeof fieldValue.doubleValue !== 'undefined') {
+            return Math.max(0, Math.floor(Number(fieldValue.doubleValue) || 0));
+        }
+
+        return 0;
+    }
+
+    parseLeaderboardDocument(document) {
+        const fields = document && document.fields ? document.fields : {};
+        return {
+            uid: fields.uid && fields.uid.stringValue ? fields.uid.stringValue : '',
+            username: fields.username && fields.username.stringValue ? fields.username.stringValue : 'UNKNOWN',
+            score: this.parseIntegerField(fields.score)
+        };
     }
 
     refreshSession(session) {
@@ -195,13 +254,26 @@ class FirebaseAuth {
     saveProgress(session, state) {
         this.ensureFirestoreConfigured();
         return this.refreshSession(session).then((freshSession) => {
+            const payload = Object.assign({}, state || {}, {
+                uid: freshSession.uid,
+                username: freshSession.username
+            });
             return requestJson(this.getFirestoreUrl(this.getProgressDocumentPath(freshSession.uid)), {
                 method: 'PATCH',
                 headers: {
                     Authorization: `Bearer ${freshSession.idToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(this.buildProgressDocument(state))
+                body: JSON.stringify(this.buildProgressDocument(payload))
+            }).then(() => {
+                return requestJson(this.getFirestoreUrl(this.getLeaderboardDocumentPath(freshSession.uid)), {
+                    method: 'PATCH',
+                    headers: {
+                        Authorization: `Bearer ${freshSession.idToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.buildLeaderboardDocument(freshSession, payload))
+                });
             }).then(() => {
                 return freshSession;
             });
@@ -219,7 +291,47 @@ class FirebaseAuth {
             }, {
                 allowNotFound: true
             }).then(() => {
+                return requestJson(this.getFirestoreUrl(this.getLeaderboardDocumentPath(freshSession.uid)), {
+                    method: 'DELETE',
+                    headers: {
+                        Authorization: `Bearer ${freshSession.idToken}`
+                    }
+                }, {
+                    allowNotFound: true
+                });
+            }).then(() => {
                 return freshSession;
+            });
+        });
+    }
+
+    loadLeaderboard(session) {
+        this.ensureFirestoreConfigured();
+        return this.refreshSession(session).then((freshSession) => {
+            const url = `${this.getFirestoreUrl('marioLeaderboard')}?pageSize=100`;
+            return requestJson(url, {
+                method: 'GET',
+                headers: {
+                    Authorization: `Bearer ${freshSession.idToken}`
+                }
+            }).then((data) => {
+                const documents = data && Array.isArray(data.documents) ? data.documents : [];
+                const entries = documents
+                    .map((document) => this.parseLeaderboardDocument(document))
+                    .filter((entry) => entry && entry.username)
+                    .sort((left, right) => {
+                        if (right.score !== left.score) {
+                            return right.score - left.score;
+                        }
+
+                        return String(left.username).localeCompare(String(right.username));
+                    })
+                    .slice(0, 3);
+
+                return {
+                    session: freshSession,
+                    entries
+                };
             });
         });
     }
