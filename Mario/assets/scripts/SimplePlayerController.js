@@ -381,7 +381,8 @@ cc.Class({
         }
 
         if (goal) {
-            if (this.game) {
+            const justTriggered = goal.triggerGoal ? goal.triggerGoal() : true;
+            if (justTriggered && this.game) {
                 this.game.clearLevel();
             }
             return;

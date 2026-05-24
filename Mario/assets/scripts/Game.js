@@ -113,6 +113,7 @@ cc.Class({
             this.playerController.enableControl(true);
         }
 
+        this.resetGoalPoles();
         this.refreshUI();
         this.showStatus('Stage 1-1');
         this.worldFrozen = false;
@@ -263,6 +264,18 @@ cc.Class({
             this.playerController.enableControl(false);
         }
         this.showStatus('Stage Clear!');
+    },
+
+    resetGoalPoles() {
+        const scene = cc.director.getScene();
+        if (!scene) {
+            return;
+        }
+
+        const components = scene.getComponentsInChildren('GoalPole');
+        for (let i = 0; i < components.length; i += 1) {
+            components[i].triggered = false;
+        }
     },
 
     collectPowerUp() {
