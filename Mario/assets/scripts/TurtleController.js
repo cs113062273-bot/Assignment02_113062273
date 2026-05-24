@@ -80,7 +80,7 @@ cc.Class({
         if (goomba && this.state === 'shellMoving') {
             goomba.stomp();
             if (this.game) {
-                this.game.stompEnemy();
+                this.game.stompEnemy(goomba.node);
             }
             return;
         }

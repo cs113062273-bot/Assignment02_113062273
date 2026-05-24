@@ -10576,6 +10576,9 @@
     "stageSelectUserValueLabel": {
       "__id__": 14
     },
+    "stageSelectLifeValueLabel": null,
+    "stageSelectCoinValueLabel": null,
+    "stageSelectScoreValueLabel": null,
     "questionBoxNode": {
       "__id__": 36
     },
@@ -10584,6 +10587,9 @@
     },
     "stage2ButtonNode": {
       "__id__": 50
+    },
+    "stage2LockedSpriteFrame": {
+      "__uuid__": "c7fdca0a-2b21-4940-b663-5692a65b4128"
     },
     "ruleNode": {
       "__id__": 57

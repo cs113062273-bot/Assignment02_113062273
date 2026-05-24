@@ -1,5 +1,6 @@
 const firebaseAuth = require('FirebaseAuth');
 const RUNTIME_STATE_KEY = 'mario-runtime-state';
+const MENU_STAGE_SELECT_KEY = 'mario-open-stage-select';
 
 cc.Class({
     extends: cc.Component,
@@ -16,9 +17,13 @@ cc.Class({
         loadingLayer: cc.Node,
         stageSelectUserLabel: cc.Label,
         stageSelectUserValueLabel: cc.Label,
+        stageSelectLifeValueLabel: cc.Label,
+        stageSelectCoinValueLabel: cc.Label,
+        stageSelectScoreValueLabel: cc.Label,
         questionBoxNode: cc.Node,
         stage1ButtonNode: cc.Node,
         stage2ButtonNode: cc.Node,
+        stage2LockedSpriteFrame: cc.SpriteFrame,
         ruleNode: cc.Node,
         loginUsernameInput: cc.EditBox,
         loginPasswordInput: cc.EditBox,
@@ -59,6 +64,10 @@ cc.Class({
         this.showLoginMessage('');
         this.showSignupMessage('');
         this.preloadStageScenes();
+
+        if (this.consumeStageSelectRequest()) {
+            this.showStageSelectDirect();
+        }
     },
 
     preloadStageScenes() {
@@ -140,6 +149,27 @@ cc.Class({
             const userLabelNode = this.findNode('StageSelectLayer/User/UserLabel');
             this.stageSelectUserLabel = userLabelNode ? userLabelNode.getComponent(cc.Label) : null;
         }
+
+        if (!this.stageSelectLifeValueLabel) {
+            const lifeValueNode = this.findNode('StageSelectLayer/Life/LifeValueLabel');
+            this.stageSelectLifeValueLabel = lifeValueNode ? lifeValueNode.getComponent(cc.Label) : null;
+        }
+
+        if (!this.stageSelectCoinValueLabel) {
+            const coinValueNode = this.findNode('StageSelectLayer/Coin/CoinValueLabel');
+            this.stageSelectCoinValueLabel = coinValueNode ? coinValueNode.getComponent(cc.Label) : null;
+        }
+
+        if (!this.stageSelectScoreValueLabel) {
+            const scoreValueNode = this.findNode('StageSelectLayer/Score/ScoreValueLabel');
+            this.stageSelectScoreValueLabel = scoreValueNode ? scoreValueNode.getComponent(cc.Label) : null;
+        }
+
+        this.stage2Button = this.stage2ButtonNode ? this.stage2ButtonNode.getComponent(cc.Button) : null;
+        this.stage2ButtonTargetSprite = this.stage2Button && this.stage2Button.target
+            ? this.stage2Button.target.getComponent(cc.Sprite)
+            : null;
+        this.stage2DefaultSpriteFrame = this.stage2ButtonTargetSprite ? this.stage2ButtonTargetSprite.spriteFrame : null;
     },
 
     findNode(path) {
@@ -189,6 +219,53 @@ cc.Class({
         }
     },
 
+    readRunState() {
+        const fallbackState = {
+            lives: 5,
+            coins: 0,
+            score: 0,
+            stage1Cleared: false
+        };
+
+        const raw = cc.sys.localStorage.getItem(RUNTIME_STATE_KEY);
+        if (!raw) {
+            return fallbackState;
+        }
+
+        try {
+            const parsed = JSON.parse(raw);
+            if (!parsed) {
+                return fallbackState;
+            }
+
+            return {
+                lives: this.sanitizeNumber(parsed.lives, fallbackState.lives),
+                coins: this.sanitizeNumber(parsed.coins, fallbackState.coins),
+                score: this.sanitizeNumber(parsed.score, fallbackState.score),
+                stage1Cleared: !!parsed.stage1Cleared
+            };
+        } catch (error) {
+            return fallbackState;
+        }
+    },
+
+    sanitizeNumber(value, fallback) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+            return fallback;
+        }
+
+        return Math.max(0, Math.floor(numeric));
+    },
+
+    consumeStageSelectRequest() {
+        const shouldOpen = cc.sys.localStorage.getItem(MENU_STAGE_SELECT_KEY) === '1';
+        if (shouldOpen) {
+            cc.sys.localStorage.removeItem(MENU_STAGE_SELECT_KEY);
+        }
+        return shouldOpen;
+    },
+
     updateStageSelectUser(session) {
         const username = session && session.username ? String(session.username).toUpperCase() : 'GUEST';
         if (this.stageSelectUserValueLabel) {
@@ -199,6 +276,55 @@ cc.Class({
         if (this.stageSelectUserLabel) {
             this.stageSelectUserLabel.string = 'USER: ' + username;
         }
+    },
+
+    updateStageSelectStats(state) {
+        const runState = state || this.readRunState();
+
+        if (this.stageSelectLifeValueLabel) {
+            this.stageSelectLifeValueLabel.string = String(runState.lives);
+        }
+
+        if (this.stageSelectCoinValueLabel) {
+            this.stageSelectCoinValueLabel.string = String(runState.coins);
+        }
+
+        if (this.stageSelectScoreValueLabel) {
+            const digitCount = this.stageSelectScoreValueLabel.string
+                ? Math.max(String(this.stageSelectScoreValueLabel.string).length, 1)
+                : 7;
+            this.stageSelectScoreValueLabel.string = String(runState.score).padStart(digitCount, '0');
+        }
+    },
+
+    updateStage2Availability(state) {
+        const runState = state || this.readRunState();
+        const unlocked = !!runState.stage1Cleared;
+        this.stage2Unlocked = unlocked;
+
+        if (this.stage2Button) {
+            this.stage2Button.interactable = unlocked;
+        }
+
+        if (this.stage2ButtonTargetSprite) {
+            if (!unlocked && this.stage2LockedSpriteFrame) {
+                this.stage2ButtonTargetSprite.spriteFrame = this.stage2LockedSpriteFrame;
+            } else if (this.stage2DefaultSpriteFrame) {
+                this.stage2ButtonTargetSprite.spriteFrame = this.stage2DefaultSpriteFrame;
+            }
+        }
+    },
+
+    showStageSelectDirect() {
+        this.hideAllPopups();
+        this.setEnterLayerVisible(false);
+        this.setRuleVisible(false);
+        this.setLoadingVisible(false);
+        this.setStageSelectVisible(true);
+        this.updateStageSelectUser(this.currentSession);
+        const runState = this.readRunState();
+        this.updateStageSelectStats(runState);
+        this.updateStage2Availability(runState);
     },
 
     onClickLogin() {
@@ -268,6 +394,9 @@ cc.Class({
                 this.setLoadingVisible(false);
                 this.setStageSelectVisible(true);
                 this.updateStageSelectUser(this.currentSession);
+                const runState = this.readRunState();
+                this.updateStageSelectStats(runState);
+                this.updateStage2Availability(runState);
             }, this.loadingDelay);
             return;
         }
@@ -304,7 +433,7 @@ cc.Class({
     },
 
     onClickStage2() {
-        if (!this.stage2Scene) {
+        if (!this.stage2Scene || !this.stage2Unlocked) {
             cc.warn('Stage 2 scene is not configured yet.');
             return;
         }
@@ -317,7 +446,9 @@ cc.Class({
             return;
         }
 
-        cc.sys.localStorage.removeItem(RUNTIME_STATE_KEY);
+        if (targetScene === this.stage1Scene) {
+            cc.sys.localStorage.removeItem(RUNTIME_STATE_KEY);
+        }
         cc.sys.localStorage.setItem('mario-next-stage-scene', targetScene);
         if (this.gameOverScene) {
             cc.sys.localStorage.setItem('mario-game-over-scene', this.gameOverScene);

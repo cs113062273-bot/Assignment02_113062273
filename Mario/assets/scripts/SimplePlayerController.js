@@ -546,11 +546,13 @@ cc.Class({
                     this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, this.jumpSpeed * 0.55);
                 }
                 if (stompResult && stompResult.defeatedEnemy && this.game) {
-                    this.game.stompEnemy();
+                    this.game.stompEnemy(turtle.node);
                 }
             } else {
                 const sideResult = turtle.onPlayerSideContact ? turtle.onPlayerSideContact(this.node, normal) : 'damage';
-                if (sideResult === 'damage') {
+                if (sideResult === 'kick' && this.game && this.game.kickShell) {
+                    this.game.kickShell(turtle.node);
+                } else if (sideResult === 'damage') {
                     this.takeDamage(turtle);
                 }
             }
@@ -567,7 +569,7 @@ cc.Class({
                 goomba.stomp();
                 this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, this.jumpSpeed * 0.55);
                 if (this.game) {
-                    this.game.stompEnemy();
+                    this.game.stompEnemy(goomba.node);
                 }
             } else {
                 this.takeDamage(goomba);

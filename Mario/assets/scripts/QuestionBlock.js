@@ -149,11 +149,11 @@ cc.Class({
         const game = this.getGame();
         if (game) {
             game.hitQuestionBlock();
+            game.addScore(this.rewardScore, this.node, this.node.height);
             if (this.rewardType === 0) {
                 if (game.collectCoin) {
                     game.collectCoin();
                 }
-                game.addScore(this.rewardScore);
             }
         }
 

@@ -1,6 +1,7 @@
 const STATE_KEY = 'mario-runtime-state';
 const NEXT_STAGE_KEY = 'mario-next-stage-scene';
 const GAME_OVER_KEY = 'mario-game-over-scene';
+const MENU_STAGE_SELECT_KEY = 'mario-open-stage-select';
 
 cc.Class({
     extends: cc.Component,
@@ -21,11 +22,52 @@ cc.Class({
         deathRestartDelay: {
             default: 0.45
         },
+        levelClearReturnDelay: {
+            default: 5
+        },
         gameStartScene: {
             default: 'gameStart'
         },
+        menuScene: {
+            default: 'menu'
+        },
+        stage1SceneName: {
+            default: 'stage1'
+        },
         defaultGameOverScene: {
             default: 'gameOver'
+        },
+        stompScore: {
+            default: 100
+        },
+        shellKickScore: {
+            default: 100
+        },
+        powerUpScore: {
+            default: 1000
+        },
+        clearTimeBonusMultiplier: {
+            default: 50
+        },
+        scorePopupRoot: {
+            default: null,
+            type: cc.Node
+        },
+        scorePopupFont: {
+            default: null,
+            type: cc.Font
+        },
+        scorePopupFontSize: {
+            default: 28
+        },
+        scorePopupRiseHeight: {
+            default: 56
+        },
+        scorePopupDuration: {
+            default: 0.55
+        },
+        scorePopupOffsetY: {
+            default: 24
         },
         deathSensorNode: {
             default: null,
@@ -122,10 +164,10 @@ cc.Class({
 
     restoreRuntimeState() {
         const fallbackState = {
-            sceneName: this.sceneName,
             lives: this.initialLives,
             coins: 0,
-            score: 0
+            score: 0,
+            stage1Cleared: false
         };
         const raw = cc.sys.localStorage.getItem(STATE_KEY);
         if (!raw) {
@@ -135,7 +177,7 @@ cc.Class({
 
         try {
             const parsed = JSON.parse(raw);
-            if (!parsed || parsed.sceneName !== this.sceneName) {
+            if (!parsed) {
                 this.applyRuntimeState(fallbackState);
                 return;
             }
@@ -150,6 +192,7 @@ cc.Class({
         this.lives = this.sanitizeNumber(state && state.lives, this.initialLives);
         this.coins = this.sanitizeNumber(state && state.coins, 0);
         this.score = this.sanitizeNumber(state && state.score, 0);
+        this.stage1Cleared = !!(state && state.stage1Cleared);
         this.remainingTime = this.initialTime;
         this.timerAccumulator = 0;
     },
@@ -242,13 +285,19 @@ cc.Class({
         this.persistRuntimeState();
     },
 
-    collectPowerUp() {
+    collectPowerUp(source) {
+        this.addScore(this.powerUpScore, source);
     },
 
-    stompEnemy() {
+    stompEnemy(source) {
+        this.addScore(this.stompScore, source);
     },
 
-    addScore(amount) {
+    kickShell(source) {
+        this.addScore(this.shellKickScore, source);
+    },
+
+    addScore(amount, source, offsetY) {
         const delta = this.sanitizeNumber(amount, 0);
         if (delta <= 0) {
             return;
@@ -257,12 +306,27 @@ cc.Class({
         this.score += delta;
         this.updateScoreUi();
         this.persistRuntimeState();
+
+        if (source) {
+            this.spawnScorePopup(delta, source, offsetY);
+        }
     },
 
     clearLevel() {
+        if (this.levelCleared) {
+            return;
+        }
+
         this.levelCleared = true;
+        if (this.sceneName === this.stage1SceneName) {
+            this.stage1Cleared = true;
+        }
         this.pauseStageBgm();
+        this.addScore(this.remainingTime * this.clearTimeBonusMultiplier);
         this.persistRuntimeState();
+        this.scheduleOnce(() => {
+            this.goToStageSelectMenu();
+        }, this.levelClearReturnDelay);
     },
 
     loseLife() {
@@ -309,8 +373,17 @@ cc.Class({
 
     goToGameOverScene() {
         cc.sys.localStorage.removeItem(STATE_KEY);
+        cc.sys.localStorage.removeItem(NEXT_STAGE_KEY);
+        cc.sys.localStorage.setItem(MENU_STAGE_SELECT_KEY, '1');
         const gameOverScene = cc.sys.localStorage.getItem(GAME_OVER_KEY) || this.defaultGameOverScene;
         cc.director.loadScene(gameOverScene || 'menu');
+    },
+
+    goToStageSelectMenu() {
+        cc.sys.localStorage.removeItem(NEXT_STAGE_KEY);
+        this.persistRuntimeState();
+        cc.sys.localStorage.setItem(MENU_STAGE_SELECT_KEY, '1');
+        cc.director.loadScene(this.menuScene || 'menu');
     },
 
     pauseStageBgm() {
@@ -319,12 +392,65 @@ cc.Class({
         }
     },
 
+    spawnScorePopup(amount, source, offsetY) {
+        const parent = this.scorePopupRoot || (this.playerNode ? this.playerNode.parent : null);
+        if (!parent || !cc.isValid(parent)) {
+            return;
+        }
+
+        const worldPosition = this.resolvePopupWorldPosition(source, offsetY);
+        if (!worldPosition) {
+            return;
+        }
+
+        const popupNode = new cc.Node('ScorePopup');
+        popupNode.parent = parent;
+        popupNode.setPosition(parent.convertToNodeSpaceAR(worldPosition));
+
+        const label = popupNode.addComponent(cc.Label);
+        label.string = String(amount);
+        label.fontSize = this.scorePopupFontSize;
+        label.lineHeight = this.scorePopupFontSize;
+        if (this.scorePopupFont) {
+            label.font = this.scorePopupFont;
+        }
+
+        popupNode.opacity = 255;
+        popupNode.runAction(
+            cc.sequence(
+                cc.spawn(
+                    cc.moveBy(this.scorePopupDuration, 0, this.scorePopupRiseHeight),
+                    cc.fadeOut(this.scorePopupDuration)
+                ),
+                cc.removeSelf()
+            )
+        );
+    },
+
+    resolvePopupWorldPosition(source, offsetY) {
+        const lift = typeof offsetY === 'number' ? offsetY : this.scorePopupOffsetY;
+
+        if (source instanceof cc.Node) {
+            if (!cc.isValid(source)) {
+                return null;
+            }
+
+            return source.convertToWorldSpaceAR(cc.v2(0, lift));
+        }
+
+        if (source && typeof source.x === 'number' && typeof source.y === 'number') {
+            return cc.v2(source.x, source.y + lift);
+        }
+
+        return null;
+    },
+
     persistRuntimeState() {
         const payload = {
-            sceneName: this.sceneName,
             lives: this.lives,
             coins: this.coins,
-            score: this.score
+            score: this.score,
+            stage1Cleared: !!this.stage1Cleared
         };
         cc.sys.localStorage.setItem(STATE_KEY, JSON.stringify(payload));
     },

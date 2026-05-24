@@ -214,7 +214,7 @@ cc.Class({
         this.isCollected = true;
 
         if (this.game && this.game.collectPowerUp) {
-            this.game.collectPowerUp();
+            this.game.collectPowerUp(this.node);
         }
 
         if (player && player.growBig) {
