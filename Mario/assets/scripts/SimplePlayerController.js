@@ -1,4 +1,5 @@
 const GoombaController = require('GoombaController');
+const TurtleController = require('TurtleController');
 const FlowerController = require('FlowerController');
 const QuestionBlock = require('QuestionBlock');
 const GoalPole = require('GoalPole');
@@ -345,10 +346,33 @@ cc.Class({
     onBeginContact(contact, selfCollider, otherCollider) {
         const otherNode = otherCollider.node;
         const goomba = otherNode.getComponent(GoombaController);
+        const turtle = otherNode.getComponent(TurtleController);
         const flower = otherNode.getComponent(FlowerController);
         const block = otherNode.getComponent(QuestionBlock);
         const goal = otherNode.getComponent(GoalPole);
         const oneWayPlatform = otherNode.getComponent(OneWayPlatform);
+
+        if (turtle) {
+            const falling = this.body && this.body.linearVelocity.y < -10;
+            const normal = contact.getWorldManifold().normal;
+            const stompedFromAbove = normal.y < -0.3;
+
+            if (stompedFromAbove && (falling || turtle.state !== 'walking')) {
+                const stompResult = turtle.onPlayerStomp ? turtle.onPlayerStomp() : null;
+                if (this.body) {
+                    this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, this.jumpSpeed * 0.55);
+                }
+                if (stompResult && stompResult.defeatedEnemy && this.game) {
+                    this.game.stompEnemy();
+                }
+            } else {
+                const sideResult = turtle.onPlayerSideContact ? turtle.onPlayerSideContact(this.node, normal) : 'damage';
+                if (sideResult === 'damage') {
+                    this.takeDamage();
+                }
+            }
+            return;
+        }
 
         if (goomba) {
             const falling = this.body && this.body.linearVelocity.y < -10;
@@ -405,10 +429,11 @@ cc.Class({
     onEndContact(contact, selfCollider, otherCollider) {
         const otherNode = otherCollider.node;
         const goomba = otherNode.getComponent(GoombaController);
+        const turtle = otherNode.getComponent(TurtleController);
         const flower = otherNode.getComponent(FlowerController);
         const goal = otherNode.getComponent(GoalPole);
         const oneWayPlatform = otherNode.getComponent(OneWayPlatform);
-        if (goomba || flower || goal) {
+        if (goomba || turtle || flower || goal) {
             return;
         }
 
