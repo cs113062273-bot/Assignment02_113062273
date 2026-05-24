@@ -42,6 +42,22 @@ cc.Class({
         transformBlinkInterval: {
             default: 0.08
         },
+        jumpSfx: {
+            default: null,
+            type: cc.AudioClip
+        },
+        stompSfx: {
+            default: null,
+            type: cc.AudioClip
+        },
+        powerUpSfx: {
+            default: null,
+            type: cc.AudioClip
+        },
+        damageSfx: {
+            default: null,
+            type: cc.AudioClip
+        },
         bigVisualSize: {
             default() {
                 return cc.size(0, 0);
@@ -245,6 +261,7 @@ cc.Class({
             return;
         }
 
+        this.playSfx(this.damageSfx);
         this.pendingDamageEnemy = enemy || null;
 
         if (this.currentForm === 'big') {
@@ -407,6 +424,7 @@ cc.Class({
             return;
         }
 
+        this.playSfx(this.jumpSfx);
         this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, this.jumpSpeed);
         this.groundContacts = 0;
         this.groundContactIds.clear();
@@ -481,6 +499,7 @@ cc.Class({
             const stompedFromAbove = normal.y < -0.3;
 
             if (falling && stompedFromAbove) {
+                this.playSfx(this.stompSfx);
                 goomba.stomp();
                 this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, this.jumpSpeed * 0.55);
                 if (this.game) {
@@ -629,6 +648,7 @@ cc.Class({
             return;
         }
 
+        this.playSfx(this.powerUpSfx);
         this.isTransforming = true;
         this.transformElapsed = 0;
         this.transformPreviewForm = 'small';
@@ -941,5 +961,13 @@ cc.Class({
         this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, 0);
         this.currentWorldBounds = this.node.getBoundingBoxToWorld();
         this.activeOneWayGroundId = support.contactId;
+    },
+
+    playSfx(clip) {
+        if (!clip) {
+            return;
+        }
+
+        cc.audioEngine.playEffect(clip, false);
     }
 });

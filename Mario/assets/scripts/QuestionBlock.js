@@ -15,6 +15,14 @@ cc.Class({
         rewardPrefab: cc.Prefab,
         coinSpriteFrame: cc.SpriteFrame,
         usedSpriteFrame: cc.SpriteFrame,
+        questionCoinSfx: {
+            default: null,
+            type: cc.AudioClip
+        },
+        powerUpAppearSfx: {
+            default: null,
+            type: cc.AudioClip
+        },
         rewardScore: 100,
         startsUsed: false,
         bounceHeight: 10,
@@ -147,10 +155,20 @@ cc.Class({
         }
 
         if (this.rewardType === 0) {
+            this.playSfx(this.questionCoinSfx);
             this.spawnCoinPopup();
             return;
         }
 
+        this.playSfx(this.powerUpAppearSfx);
         this.spawnMushroomReward();
+    },
+
+    playSfx(clip) {
+        if (!clip) {
+            return;
+        }
+
+        cc.audioEngine.playEffect(clip, false);
     }
 });

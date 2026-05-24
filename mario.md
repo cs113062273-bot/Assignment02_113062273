@@ -115,4 +115,9 @@ FIRM deadline: 2026/05/28 23:59 (commit time)
 Upload your MD5 and web link and GitHub / GitLab Url to eeclass
 我需要這些音效欄位
 1.player跳起來的
-2.往上彈questionbox冒出金幣的音效
+2.採到goomba頭上讓它消失的
+3.往上彈questionbox冒出金幣的音效
+4.吃到蘑菇變大時閃爍的音效
+5.受到敵人傷害，閃爍時的音效
+6.蘑菇從question block冒出來的音效
+穿越終點的旗子sensor時的音效

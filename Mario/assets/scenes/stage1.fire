@@ -460,6 +460,18 @@
     "frameInterval": 0.08,
     "transformDuration": 1,
     "transformBlinkInterval": 0.08,
+    "jumpSfx": {
+      "__uuid__": "b8e72414-a04e-4e05-b050-6e6f5e4ececc"
+    },
+    "stompSfx": {
+      "__uuid__": "384a2ebf-9e8d-410c-a589-35ce663f53cb"
+    },
+    "powerUpSfx": {
+      "__uuid__": "1bffd876-e6bc-4538-bc75-0ae87f65c46a"
+    },
+    "damageSfx": {
+      "__uuid__": "2698727e-7ea5-4a70-b5f0-33008bb2324b"
+    },
     "bigVisualSize": {
       "__type__": "cc.Size",
       "width": 19,
@@ -9106,6 +9118,12 @@
     "usedSpriteFrame": {
       "__uuid__": "7319d4a2-e384-4f2d-b140-f880e5d3ec87"
     },
+    "questionCoinSfx": {
+      "__uuid__": "0f20cba5-a2b2-4efd-be36-29158ecb7c22"
+    },
+    "powerUpAppearSfx": {
+      "__uuid__": "22750b4a-88f8-4f63-be3e-8b8d836b2327"
+    },
     "rewardScore": 100,
     "startsUsed": false,
     "bounceHeight": 10,
@@ -9368,6 +9386,12 @@
     "usedSpriteFrame": {
       "__uuid__": "7319d4a2-e384-4f2d-b140-f880e5d3ec87"
     },
+    "questionCoinSfx": {
+      "__uuid__": "0f20cba5-a2b2-4efd-be36-29158ecb7c22"
+    },
+    "powerUpAppearSfx": {
+      "__uuid__": "22750b4a-88f8-4f63-be3e-8b8d836b2327"
+    },
     "rewardScore": 100,
     "startsUsed": false,
     "bounceHeight": 10,
@@ -9557,6 +9581,12 @@
     },
     "usedSpriteFrame": {
       "__uuid__": "7319d4a2-e384-4f2d-b140-f880e5d3ec87"
+    },
+    "questionCoinSfx": {
+      "__uuid__": "1bffd876-e6bc-4538-bc75-0ae87f65c46a"
+    },
+    "powerUpAppearSfx": {
+      "__uuid__": "22750b4a-88f8-4f63-be3e-8b8d836b2327"
     },
     "rewardScore": 100,
     "startsUsed": false,
@@ -11423,6 +11453,9 @@
     "_enabled": true,
     "resultRoot": {
       "__id__": 243
+    },
+    "goalPoleSfx": {
+      "__uuid__": "bfe483b8-629f-4ae0-b1ce-d2644f6d914f"
     },
     "_id": "61OSgb7GRKr7j57jHvrHTY"
   },

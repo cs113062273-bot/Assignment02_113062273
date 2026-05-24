@@ -5,6 +5,10 @@ cc.Class({
         resultRoot: {
             default: null,
             type: cc.Node
+        },
+        goalPoleSfx: {
+            default: null,
+            type: cc.AudioClip
         }
     },
 
@@ -18,6 +22,7 @@ cc.Class({
         }
 
         this.triggered = true;
+        this.playSfx(this.goalPoleSfx);
         this.setRevealNodesActive(true);
         return true;
     },
@@ -36,5 +41,13 @@ cc.Class({
         }
 
         return root.children.filter((child) => child && child !== this.node);
+    },
+
+    playSfx(clip) {
+        if (!clip) {
+            return;
+        }
+
+        cc.audioEngine.playEffect(clip, false);
     }
 });
