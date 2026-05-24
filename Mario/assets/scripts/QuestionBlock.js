@@ -47,7 +47,7 @@ cc.Class({
     },
 
     getGame() {
-        return this.gameNode ? this.gameNode.getComponent('Game') : null;
+        return this.gameNode ? (this.gameNode.getComponent('Game') || this.gameNode.getComponent('SimpleStageController')) : null;
     },
 
     playBounce() {
@@ -150,6 +150,9 @@ cc.Class({
         if (game) {
             game.hitQuestionBlock();
             if (this.rewardType === 0) {
+                if (game.collectCoin) {
+                    game.collectCoin();
+                }
                 game.addScore(this.rewardScore);
             }
         }

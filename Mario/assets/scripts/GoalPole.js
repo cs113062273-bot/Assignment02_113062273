@@ -14,6 +14,7 @@ cc.Class({
 
     onLoad() {
         this.triggered = false;
+        this.game = this.findGameController();
     },
 
     triggerGoal() {
@@ -22,9 +23,39 @@ cc.Class({
         }
 
         this.triggered = true;
+        if (this.game && this.game.pauseStageBgm) {
+            this.game.pauseStageBgm();
+        }
         this.playSfx(this.goalPoleSfx);
         this.setRevealNodesActive(true);
         return true;
+    },
+
+    findGameController() {
+        const scene = cc.director.getScene();
+        if (!scene) {
+            return null;
+        }
+
+        const candidates = [
+            cc.find('Canvas/Game', scene),
+            cc.find('Canvas', scene),
+            cc.find('Game', scene)
+        ];
+
+        for (let i = 0; i < candidates.length; i += 1) {
+            const node = candidates[i];
+            if (!node) {
+                continue;
+            }
+
+            const controller = node.getComponent('Game') || node.getComponent('SimpleStageController');
+            if (controller) {
+                return controller;
+            }
+        }
+
+        return null;
     },
 
     setRevealNodesActive(active) {

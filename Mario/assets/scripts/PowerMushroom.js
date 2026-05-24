@@ -29,7 +29,7 @@ cc.Class({
     },
 
     onLoad() {
-        this.game = this.gameNode ? this.gameNode.getComponent('Game') : null;
+        this.game = this.gameNode ? (this.gameNode.getComponent('Game') || this.gameNode.getComponent('SimpleStageController')) : null;
         this.body = this.getComponent(cc.RigidBody);
         this.sprite = this.getComponent(cc.Sprite);
         this.hiddenY = this.node.y;
@@ -50,7 +50,7 @@ cc.Class({
 
     setGameNode(gameNode) {
         this.gameNode = gameNode;
-        this.game = gameNode ? gameNode.getComponent('Game') : null;
+        this.game = gameNode ? (gameNode.getComponent('Game') || gameNode.getComponent('SimpleStageController')) : null;
     },
 
     spawnFromQuestionBlock(blockNode, gameNode, offsetY) {

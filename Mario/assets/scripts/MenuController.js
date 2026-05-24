@@ -1,4 +1,5 @@
 const firebaseAuth = require('FirebaseAuth');
+const RUNTIME_STATE_KEY = 'mario-runtime-state';
 
 cc.Class({
     extends: cc.Component,
@@ -316,6 +317,7 @@ cc.Class({
             return;
         }
 
+        cc.sys.localStorage.removeItem(RUNTIME_STATE_KEY);
         cc.sys.localStorage.setItem('mario-next-stage-scene', targetScene);
         if (this.gameOverScene) {
             cc.sys.localStorage.setItem('mario-game-over-scene', this.gameOverScene);

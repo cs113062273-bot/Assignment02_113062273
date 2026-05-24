@@ -58,6 +58,32 @@ cc.Class({
             default: null,
             type: cc.AudioClip
         },
+        deathSfx: {
+            default: null,
+            type: cc.AudioClip
+        },
+        deathSfxVolume: {
+            default: 1.8
+        },
+        deathSpriteFrame: {
+            default: null,
+            type: cc.SpriteFrame
+        },
+        deathPauseDuration: {
+            default: 0.18
+        },
+        deathRiseDuration: {
+            default: 0.28
+        },
+        deathRiseHeight: {
+            default: 135
+        },
+        deathFallDuration: {
+            default: 0.72
+        },
+        deathFallOffset: {
+            default: 285
+        },
         bigVisualSize: {
             default() {
                 return cc.size(0, 0);
@@ -100,10 +126,15 @@ cc.Class({
         this.localWorldFrozen = false;
         this.freezeDuration = 1;
         this.cachedGravity = cc.v2(0, -2000);
+        this.baseGravityScale = this.body && typeof this.body.gravityScale === 'number' ? this.body.gravityScale : 1;
         this.baseScaleX = Math.abs(this.node.scaleX || 1);
         this.baseScaleY = Math.abs(this.node.scaleY || 1);
         this.currentForm = 'small';
         this.isTransforming = false;
+        this.isDying = false;
+        this.deathLockX = null;
+        this.deathStartY = null;
+        this.deathHoldPosition = false;
         this.transformElapsed = 0;
         this.transformPreviewForm = 'small';
         this.startedWorldFreeze = false;
@@ -164,6 +195,10 @@ cc.Class({
         this.blinkVisible = true;
         this.localWorldFrozen = false;
         this.isTransforming = false;
+        this.isDying = false;
+        this.deathLockX = null;
+        this.deathStartY = null;
+        this.deathHoldPosition = false;
         this.transformElapsed = 0;
         this.transformPreviewForm = 'small';
         this.startedWorldFreeze = false;
@@ -179,9 +214,17 @@ cc.Class({
         this.activeOneWayGroundId = null;
 
         if (this.body) {
+            this.body.enabled = true;
+            this.body.enabledContactListener = true;
+            this.body.gravityScale = this.baseGravityScale;
             this.body.linearVelocity = cc.v2(0, 0);
             this.body.angularVelocity = 0;
             this.body.awake = true;
+        }
+
+        const colliders = this.node.getComponents(cc.PhysicsCollider);
+        for (let i = 0; i < colliders.length; i += 1) {
+            colliders[i].enabled = true;
         }
 
         this.applyForm('small', false);
@@ -209,6 +252,15 @@ cc.Class({
     },
 
     update(dt) {
+        if (this.isDying) {
+            if (this.deathHoldPosition && typeof this.deathLockX === 'number' && typeof this.deathStartY === 'number') {
+                this.node.setPosition(this.deathLockX, this.deathStartY);
+            } else if (typeof this.deathLockX === 'number') {
+                this.node.x = this.deathLockX;
+            }
+            return;
+        }
+
         this.updateDamageBlink(dt);
         this.updateTransformBlink(dt);
         this.previousWorldBounds = this.cloneRect(this.currentWorldBounds || this.node.getBoundingBoxToWorld());
@@ -257,16 +309,28 @@ cc.Class({
     },
 
     takeDamage(enemy) {
-        if (this.isTransforming || this.damageBlinkDuration > 0 || this.localWorldFrozen) {
+        if (this.isDying || this.isTransforming || this.damageBlinkDuration > 0 || this.localWorldFrozen) {
             return;
         }
 
-        this.playSfx(this.damageSfx);
         this.pendingDamageEnemy = enemy || null;
 
         if (this.currentForm === 'big') {
+            this.playSfx(this.damageSfx);
             this.shrinkToSmall(enemy);
             return;
+        }
+
+        this.deathLockX = this.node.x;
+        this.deathStartY = this.node.y;
+        this.deathHoldPosition = true;
+        this.node.setPosition(this.deathLockX, this.deathStartY);
+
+        if (this.body) {
+            this.body.linearVelocity = cc.v2(0, 0);
+            this.body.angularVelocity = 0;
+            this.body.gravityScale = 0;
+            this.body.awake = true;
         }
 
         if (this.game && this.game.loseLife) {
@@ -963,11 +1027,100 @@ cc.Class({
         this.activeOneWayGroundId = support.contactId;
     },
 
-    playSfx(clip) {
+    playDeathAnimation(onComplete) {
+        if (this.isDying) {
+            return;
+        }
+
+        this.isDying = true;
+        this.localWorldFrozen = true;
+        this.enableControl(false);
+        this.setSpriteVisible(true);
+        this.damageBlinkTimer = 0;
+        this.damageBlinkDuration = 0;
+        this.blinkVisible = true;
+        this.groundContacts = 0;
+        this.groundContactIds.clear();
+        this.onGround = false;
+        this.oneWayContacts.clear();
+        this.activeOneWayGroundId = null;
+        if (typeof this.deathLockX !== 'number') {
+            this.deathLockX = this.node.x;
+        }
+        if (typeof this.deathStartY !== 'number') {
+            this.deathStartY = this.node.y;
+        }
+        this.deathHoldPosition = true;
+        this.node.setPosition(this.deathLockX, this.deathStartY);
+
+        if (this.currentForm !== 'small') {
+            this.applyForm('small', true);
+        }
+
+        const deathFrame = this.getDeathSpriteFrame();
+        if (this.sprite && deathFrame) {
+            this.sprite.spriteFrame = deathFrame;
+        }
+
+        this.playSfx(this.deathSfx, this.deathSfxVolume);
+
+        if (this.body) {
+            this.body.linearVelocity = cc.v2(0, 0);
+            this.body.angularVelocity = 0;
+            this.body.enabledContactListener = false;
+            this.body.enabled = false;
+        }
+
+        const colliders = this.node.getComponents(cc.PhysicsCollider);
+        for (let i = 0; i < colliders.length; i += 1) {
+            colliders[i].enabled = false;
+        }
+
+        this.node.stopAllActions();
+        this.node.runAction(
+            cc.sequence(
+                cc.delayTime(this.deathPauseDuration),
+                cc.callFunc(() => {
+                    this.node.setPosition(this.deathLockX, this.deathStartY);
+                    this.deathHoldPosition = false;
+                }),
+                cc.moveTo(this.deathRiseDuration, this.deathLockX, this.deathStartY + this.deathRiseHeight).easing(cc.easeCubicActionOut()),
+                cc.moveTo(this.deathFallDuration, this.deathLockX, this.deathStartY - this.deathFallOffset).easing(cc.easeCubicActionIn()),
+                cc.delayTime(0.12),
+                cc.callFunc(() => {
+                    this.deathLockX = null;
+                    this.deathStartY = null;
+                    this.deathHoldPosition = false;
+                    if (onComplete) {
+                        onComplete();
+                    }
+                })
+            )
+        );
+    },
+
+    getDeathSpriteFrame() {
+        if (this.deathSpriteFrame) {
+            return this.deathSpriteFrame;
+        }
+
+        if (this.sprite && this.sprite._atlas && this.sprite._atlas.getSpriteFrame) {
+            return this.sprite._atlas.getSpriteFrame('mario_small_18.png')
+                || this.sprite._atlas.getSpriteFrame('mario_small_22.png')
+                || this.sprite._atlas.getSpriteFrame('mario_small_15.png');
+        }
+
+        return this.jumpFrames[0] || this.runFrames[0] || null;
+    },
+
+    playSfx(clip, volume) {
         if (!clip) {
             return;
         }
 
-        cc.audioEngine.playEffect(clip, false);
+        const audioId = cc.audioEngine.playEffect(clip, false);
+        if (typeof volume === 'number' && Number.isFinite(volume)) {
+            cc.audioEngine.setVolume(audioId, Math.max(0, volume));
+        }
     }
 });

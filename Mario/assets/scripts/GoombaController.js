@@ -22,7 +22,7 @@ cc.Class({
     },
 
     onLoad() {
-        this.game = this.gameNode ? this.gameNode.getComponent('Game') : null;
+        this.game = this.gameNode ? (this.gameNode.getComponent('Game') || this.gameNode.getComponent('SimpleStageController')) : null;
         this.body = this.getComponent(cc.RigidBody);
         this.sprite = this.getComponent(cc.Sprite);
         this.moveDirection = -1;

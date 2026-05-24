@@ -65,6 +65,18 @@ cc.Class({
         }
     },
 
+    pause() {
+        if (this.audioSource) {
+            this.audioSource.pause();
+        }
+    },
+
+    resume() {
+        if (this.audioSource) {
+            this.audioSource.resume();
+        }
+    },
+
     onDestroy() {
         if (persistentBgm === this) {
             persistentBgm = null;

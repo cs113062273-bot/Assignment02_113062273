@@ -27,7 +27,7 @@ cc.Class({
     },
 
     onLoad() {
-        this.game = this.gameNode ? this.gameNode.getComponent('Game') : null;
+        this.game = this.gameNode ? (this.gameNode.getComponent('Game') || this.gameNode.getComponent('SimpleStageController')) : null;
         this.body = this.getComponent(cc.RigidBody);
         this.sprite = this.getComponent(cc.Sprite);
         this.pipeSprite = this.pipeNode ? this.pipeNode.getComponent(cc.Sprite) : null;
@@ -128,7 +128,7 @@ cc.Class({
         }
 
         this.damageLocked = true;
-        player.takeDamage();
+        player.takeDamage(this.node);
 
         this.scheduleOnce(() => {
             this.damageLocked = false;
