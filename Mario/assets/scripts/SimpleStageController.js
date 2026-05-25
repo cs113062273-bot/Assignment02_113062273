@@ -296,9 +296,6 @@ cc.Class({
         return this.worldFrozen || this.playerDying || this.levelCleared;
     },
 
-    hitQuestionBlock() {
-    },
-
     collectCoin() {
         this.coins += 1;
         this.updateCoinUi();

@@ -33,7 +33,6 @@ This repository contains a Cocos Creator 2.4.8 project at `Mario/`.
 - Gravity and collision-based platforming
 - Camera/background movement following the player
 - Static walls / platforms / stairs
-- Interactive question blocks
 - Keyboard movement and jump
 - Life system
 - Respawn at initial position after death
@@ -54,7 +53,7 @@ This repository contains a Cocos Creator 2.4.8 project at `Mario/`.
 - Jump SFX
 - Death SFX
 - Stomp SFX
-- Question block / power-up / coin / stage clear SFX
+- Power-up / coin / stage clear SFX
 - Effects use `playEffect`, so they do not stop the BGM
 
 ### UI

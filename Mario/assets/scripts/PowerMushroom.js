@@ -53,23 +53,23 @@ cc.Class({
         this.game = gameNode ? (gameNode.getComponent('Game') || gameNode.getComponent('SimpleStageController')) : null;
     },
 
-    spawnFromQuestionBlock(blockNode, gameNode, offsetY) {
+    spawnFromRewardSource(sourceNode, gameNode, offsetY) {
         this.setGameNode(gameNode);
 
-        if (!blockNode || !blockNode.parent) {
+        if (!sourceNode || !sourceNode.parent) {
             this.node.setPosition(this.node.position.x, this.node.position.y + (offsetY || 0));
             this.hiddenY = this.node.y;
             this.visibleY = this.hiddenY + this.getDefaultEmergeHeight();
             return;
         }
 
-        if (this.node.parent !== blockNode.parent) {
-            this.node.parent = blockNode.parent;
+        if (this.node.parent !== sourceNode.parent) {
+            this.node.parent = sourceNode.parent;
         }
 
-        const blockPosition = blockNode.position.clone ? blockNode.position.clone() : cc.v2(blockNode.x, blockNode.y);
-        const localCenter = blockPosition.add(cc.v2(0, offsetY || 0));
-        const emergeHeight = this.getEmergeHeightForBlock(blockNode);
+        const sourcePosition = sourceNode.position.clone ? sourceNode.position.clone() : cc.v2(sourceNode.x, sourceNode.y);
+        const localCenter = sourcePosition.add(cc.v2(0, offsetY || 0));
+        const emergeHeight = this.getEmergeHeightForSource(sourceNode);
 
         this.node.setPosition(localCenter);
         this.hiddenY = localCenter.y;
@@ -196,14 +196,14 @@ cc.Class({
         return Math.max(this.node.height || 16, 16);
     },
 
-    getEmergeHeightForBlock(blockNode) {
+    getEmergeHeightForSource(sourceNode) {
         if (this.emergeHeight > 0) {
             return this.emergeHeight;
         }
 
-        const blockHeight = blockNode && blockNode.height ? blockNode.height : 16;
+        const sourceHeight = sourceNode && sourceNode.height ? sourceNode.height : 16;
         const mushroomHeight = this.node.height || 16;
-        return Math.max((blockHeight * 0.5) + (mushroomHeight * 0.5), 16);
+        return Math.max((sourceHeight * 0.5) + (mushroomHeight * 0.5), 16);
     },
 
     collect(player) {

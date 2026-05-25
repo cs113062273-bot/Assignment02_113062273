@@ -1,7 +1,6 @@
 const GoombaController = require('GoombaController');
 const TurtleController = require('TurtleController');
 const FlowerController = require('FlowerController');
-const QuestionBlock = require('QuestionBlock');
 const GoalPole = require('GoalPole');
 const OneWayPlatform = require('OneWayPlatform');
 const WorldFreezeController = require('WorldFreezeController');
@@ -500,38 +499,11 @@ cc.Class({
         return Math.abs(normal.y) > 0.4;
     },
 
-    isBlockHitFromBelow(contact, blockNode) {
-        if (!this.body || this.body.linearVelocity.y <= 0 || !blockNode) {
-            return false;
-        }
-
-        const normal = contact.getWorldManifold().normal;
-        if (normal.y > 0.3) {
-            return true;
-        }
-
-        const playerBounds = this.node.getBoundingBoxToWorld();
-        const blockBounds = blockNode.getBoundingBoxToWorld();
-
-        const playerLeft = playerBounds.x;
-        const playerRight = playerBounds.x + playerBounds.width;
-        const playerTop = playerBounds.y + playerBounds.height;
-        const blockLeft = blockBounds.x;
-        const blockRight = blockBounds.x + blockBounds.width;
-        const blockBottom = blockBounds.y;
-
-        const horizontalOverlap = playerRight > blockLeft + 2 && playerLeft < blockRight - 2;
-        const isUnderBlock = playerTop <= blockBottom + 8;
-
-        return horizontalOverlap && isUnderBlock;
-    },
-
     onBeginContact(contact, selfCollider, otherCollider) {
         const otherNode = otherCollider.node;
         const goomba = otherNode.getComponent(GoombaController);
         const turtle = otherNode.getComponent(TurtleController);
         const flower = otherNode.getComponent(FlowerController);
-        const block = otherNode.getComponent(QuestionBlock);
         const goal = otherNode.getComponent(GoalPole);
         const oneWayPlatform = otherNode.getComponent(OneWayPlatform);
 
@@ -598,6 +570,13 @@ cc.Class({
             return;
         }
 
+        const bumpSource = this.getBumpSource(otherNode);
+        if (bumpSource) {
+            if (this.isBlockHitFromBelow(contact, bumpSource.node)) {
+                bumpSource.tryActivateFromBelow();
+            }
+        }
+
         if (otherCollider && !otherCollider.sensor && this.isGroundContact(contact)) {
             const contactId = this.getContactId(otherCollider);
             this.groundContactIds.add(contactId);
@@ -605,11 +584,6 @@ cc.Class({
             this.onGround = true;
         }
 
-        if (block) {
-            if (this.isBlockHitFromBelow(contact, otherNode)) {
-                block.hitFromBelow();
-            }
-        }
     },
 
     onEndContact(contact, selfCollider, otherCollider) {
@@ -707,6 +681,40 @@ cc.Class({
         const nodeId = collider && collider.node ? collider.node.uuid : 'unknown-node';
         const tag = collider ? collider.tag : 'unknown-tag';
         return `${nodeId}:${tag}`;
+    },
+
+    getBumpSource(node) {
+        let current = node;
+
+        while (current) {
+            const rewardSource = current.getComponent('RewardSource');
+            if (rewardSource) {
+                return rewardSource;
+            }
+
+            const bumpBlock = current.getComponent('BlockBump');
+            if (bumpBlock) {
+                return bumpBlock;
+            }
+            current = current.parent;
+        }
+
+        return null;
+    },
+
+    isBlockHitFromBelow(contact, blockNode) {
+        if (!contact || !blockNode) {
+            return false;
+        }
+
+        const normal = contact.getWorldManifold().normal;
+        if (Math.abs(normal.y) < 0.2) {
+            return false;
+        }
+
+        const playerWorld = this.node.convertToWorldSpaceAR ? this.node.convertToWorldSpaceAR(cc.v2(0, 0)) : cc.v2(this.node.x, this.node.y);
+        const blockWorld = blockNode.convertToWorldSpaceAR ? blockNode.convertToWorldSpaceAR(cc.v2(0, 0)) : cc.v2(blockNode.x, blockNode.y);
+        return playerWorld.y < blockWorld.y;
     },
 
     growBig() {

@@ -22,7 +22,6 @@ Create these nodes under `WorldRoot`:
 
 - `Ground`
 - `Platforms`
-- `QuestionBlocks`
 - `Enemies`
 - `Items`
 - `Goal`
@@ -125,27 +124,6 @@ Drag:
 
 Duplicate this node for more enemies.
 
-### `Question Block`
-
-Create a block under `QuestionBlocks`.
-
-Add components:
-
-- `Sprite`
-- `RigidBody`
-- `PhysicsBoxCollider`
-- `QuestionBlock`
-
-Set:
-
-- `RigidBody Type = Static`
-
-Drag:
-
-- `Canvas` -> `gameNode`
-- used block sprite frame -> `usedSpriteFrame`
-- mushroom prefab -> `rewardPrefab`
-
 ### `Mushroom Prefab`
 
 Create a node under `Items`, then drag it into `assets/prefabs` to make a prefab.
@@ -165,8 +143,6 @@ Set:
 Drag:
 
 - `Canvas` -> `gameNode`
-
-Then delete the scene copy and use the prefab for `QuestionBlock.rewardPrefab`.
 
 ### `Goal`
 
@@ -271,9 +247,8 @@ Do these in order:
 5. Build `PlayerSpawn`
 6. Build `Player`
 7. Build one `Goomba`
-8. Build one `QuestionBlock`
-9. Build one `Goal`
-10. Build `HudLayer`
+8. Build one `Goal`
+9. Build `HudLayer`
 
 ## 6. Important Notes
 
