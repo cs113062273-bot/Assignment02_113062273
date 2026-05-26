@@ -1,0 +1,1158 @@
+const GoombaController = require('GoombaController');
+const TurtleController = require('TurtleController');
+const FlowerController = require('FlowerController');
+const GoalPole = require('GoalPole');
+const OneWayPlatform = require('OneWayPlatform');
+const WorldFreezeController = require('WorldFreezeController');
+
+cc.Class({
+    extends: cc.Component,
+
+    properties: {
+        spawnPoint: cc.Node,
+        moveSpeed: {
+            default: 220
+        },
+        jumpSpeed: {
+            default: 720
+        },
+        runFrames: {
+            default: [],
+            type: [cc.SpriteFrame]
+        },
+        jumpFrames: {
+            default: [],
+            type: [cc.SpriteFrame]
+        },
+        bigRunFrames: {
+            default: [],
+            type: [cc.SpriteFrame]
+        },
+        bigJumpFrames: {
+            default: [],
+            type: [cc.SpriteFrame]
+        },
+        frameInterval: {
+            default: 0.08
+        },
+        transformDuration: {
+            default: 0.75
+        },
+        transformBlinkInterval: {
+            default: 0.08
+        },
+        jumpSfx: {
+            default: null,
+            type: cc.AudioClip
+        },
+        stompSfx: {
+            default: null,
+            type: cc.AudioClip
+        },
+        powerUpSfx: {
+            default: null,
+            type: cc.AudioClip
+        },
+        damageSfx: {
+            default: null,
+            type: cc.AudioClip
+        },
+        deathSfx: {
+            default: null,
+            type: cc.AudioClip
+        },
+        deathSfxVolume: {
+            default: 1.8
+        },
+        deathSpriteFrame: {
+            default: null,
+            type: cc.SpriteFrame
+        },
+        deathPauseDuration: {
+            default: 0.18
+        },
+        deathRiseDuration: {
+            default: 0.28
+        },
+        deathRiseHeight: {
+            default: 135
+        },
+        deathFallDuration: {
+            default: 0.72
+        },
+        deathFallOffset: {
+            default: 285
+        },
+        bigVisualSize: {
+            default() {
+                return cc.size(0, 0);
+            },
+            type: cc.Size
+        },
+        bigColliderOffset: {
+            default() {
+                return cc.v2(0, 0);
+            },
+            type: cc.Vec2
+        },
+        bigColliderSize: {
+            default() {
+                return cc.size(0, 0);
+            },
+            type: cc.Size
+        }
+    },
+
+    onLoad() {
+        this.game = null;
+        this.body = this.getComponent(cc.RigidBody);
+        this.sprite = this.getComponent(cc.Sprite);
+        this.boxCollider = this.getComponent(cc.PhysicsBoxCollider);
+        this.keys = {
+            left: false,
+            right: false
+        };
+        this.groundContacts = 0;
+        this.groundContactIds = new Set();
+        this.onGround = false;
+        this.frameTimer = 0;
+        this.frameIndex = 0;
+        this.lastWorldX = this.node.x;
+        this.controlEnabled = true;
+        this.damageBlinkTimer = 0;
+        this.damageBlinkDuration = 0;
+        this.blinkVisible = true;
+        this.localWorldFrozen = false;
+        this.freezeDuration = 1;
+        this.cachedGravity = cc.v2(0, -2000);
+        this.baseGravityScale = this.body && typeof this.body.gravityScale === 'number' ? this.body.gravityScale : 1;
+        this.baseScaleX = Math.abs(this.node.scaleX || 1);
+        this.baseScaleY = Math.abs(this.node.scaleY || 1);
+        this.currentForm = 'small';
+        this.isTransforming = false;
+        this.isDying = false;
+        this.deathLockX = null;
+        this.deathStartY = null;
+        this.deathHoldPosition = false;
+        this.transformElapsed = 0;
+        this.transformPreviewForm = 'small';
+        this.startedWorldFreeze = false;
+        this.pendingDamageEnemy = null;
+        this.spawnPosition = this.spawnPoint ? this.spawnPoint.position.clone() : this.node.position.clone();
+        this.smallVisualSize = this.cloneSize(this.node.getContentSize ? this.node.getContentSize() : cc.size(this.node.width, this.node.height));
+        this.smallColliderOffset = this.boxCollider ? this.cloneVec2(this.boxCollider.offset) : cc.v2(0, 0);
+        this.smallColliderSize = this.boxCollider ? this.cloneSize(this.boxCollider.size) : cc.size(0, 0);
+        this.currentWorldBounds = this.node.getBoundingBoxToWorld();
+        this.previousWorldBounds = cc.rect(
+            this.currentWorldBounds.x,
+            this.currentWorldBounds.y,
+            this.currentWorldBounds.width,
+            this.currentWorldBounds.height
+        );
+        this.oneWayContacts = new Map();
+        this.activeOneWayGroundId = null;
+
+        if (this.body) {
+            this.body.enabledContactListener = true;
+        }
+
+        this.configureColliderPhysics();
+
+        this._onKeyDown = this.onKeyDown.bind(this);
+        this._onKeyUp = this.onKeyUp.bind(this);
+
+        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_DOWN, this._onKeyDown);
+        cc.systemEvent.on(cc.SystemEvent.EventType.KEY_UP, this._onKeyUp);
+
+        if (this.sprite) {
+            this.sprite.sizeMode = cc.Sprite.SizeMode.CUSTOM;
+        }
+
+        this.applyForm('small', false);
+    },
+
+    setGame(game) {
+        this.game = game;
+    },
+
+    resetPlayer() {
+        const spawn = this.spawnPoint ? this.spawnPoint.position : this.spawnPosition;
+        this.node.setPosition(spawn);
+        this.node.angle = 0;
+        this.node.scaleX = this.baseScaleX;
+        this.node.scaleY = this.baseScaleY;
+        this.keys.left = false;
+        this.keys.right = false;
+        this.groundContacts = 0;
+        this.groundContactIds.clear();
+        this.onGround = false;
+        this.frameTimer = 0;
+        this.frameIndex = 0;
+        this.lastWorldX = this.node.x;
+        this.node.active = true;
+        this.setSpriteVisible(true);
+        this.damageBlinkTimer = 0;
+        this.damageBlinkDuration = 0;
+        this.blinkVisible = true;
+        this.localWorldFrozen = false;
+        this.isTransforming = false;
+        this.isDying = false;
+        this.deathLockX = null;
+        this.deathStartY = null;
+        this.deathHoldPosition = false;
+        this.transformElapsed = 0;
+        this.transformPreviewForm = 'small';
+        this.startedWorldFreeze = false;
+        this.pendingDamageEnemy = null;
+        this.currentWorldBounds = this.node.getBoundingBoxToWorld();
+        this.previousWorldBounds = cc.rect(
+            this.currentWorldBounds.x,
+            this.currentWorldBounds.y,
+            this.currentWorldBounds.width,
+            this.currentWorldBounds.height
+        );
+        this.oneWayContacts.clear();
+        this.activeOneWayGroundId = null;
+
+        this.configureColliderPhysics();
+
+        if (this.body) {
+            this.body.enabled = true;
+            this.body.enabledContactListener = true;
+            this.body.gravityScale = this.baseGravityScale;
+            this.body.linearVelocity = cc.v2(0, 0);
+            this.body.angularVelocity = 0;
+            this.body.awake = true;
+        }
+
+        const colliders = this.node.getComponents(cc.PhysicsCollider);
+        for (let i = 0; i < colliders.length; i += 1) {
+            colliders[i].enabled = true;
+        }
+
+        this.applyForm('small', false);
+    },
+
+    enableControl(enabled) {
+        this.controlEnabled = enabled;
+        this.keys.left = false;
+        this.keys.right = false;
+
+        if (!enabled && this.body) {
+            this.body.linearVelocity = cc.v2(0, this.body.linearVelocity.y);
+        }
+    },
+
+    onDestroy() {
+        cc.systemEvent.off(cc.SystemEvent.EventType.KEY_DOWN, this._onKeyDown);
+        cc.systemEvent.off(cc.SystemEvent.EventType.KEY_UP, this._onKeyUp);
+
+        if (this.startedWorldFreeze) {
+            this.startedWorldFreeze = false;
+            this.resumePhysics();
+            WorldFreezeController.reset();
+        }
+    },
+
+    update(dt) {
+        if (this.isDying) {
+            if (this.deathHoldPosition && typeof this.deathLockX === 'number' && typeof this.deathStartY === 'number') {
+                this.node.setPosition(this.deathLockX, this.deathStartY);
+            } else if (typeof this.deathLockX === 'number') {
+                this.node.x = this.deathLockX;
+            }
+            return;
+        }
+
+        this.updateDamageBlink(dt);
+        this.updateTransformBlink(dt);
+        this.previousWorldBounds = this.cloneRect(this.currentWorldBounds || this.node.getBoundingBoxToWorld());
+        this.currentWorldBounds = this.node.getBoundingBoxToWorld();
+
+        if (!this.body) {
+            return;
+        }
+
+        if (this.isWorldFrozen()) {
+            if (this.body) {
+                this.body.linearVelocity = cc.v2(0, 0);
+            }
+            this.lastWorldX = this.node.x;
+            this.updateAnimation(0);
+            return;
+        }
+
+        const movedX = dt > 0 ? (this.node.x - this.lastWorldX) / dt : 0;
+        this.lastWorldX = this.node.x;
+        this.resolveOneWayPlatformSupport();
+        this.onGround = this.groundContactIds.size > 0 || !!this.activeOneWayGroundId;
+
+        if (!this.controlEnabled) {
+            this.updateAnimation(0);
+            return;
+        }
+
+        let vx = 0;
+        if (this.keys.left) {
+            vx -= this.moveSpeed;
+            this.node.scaleX = -this.baseScaleX;
+        }
+        if (this.keys.right) {
+            vx += this.moveSpeed;
+            this.node.scaleX = this.baseScaleX;
+        }
+
+        this.body.linearVelocity = cc.v2(vx, this.body.linearVelocity.y);
+        this.updateAnimation(movedX);
+    },
+
+    isWorldFrozen() {
+        const gameFrozen = this.game && this.game.isWorldFrozen && this.game.isWorldFrozen();
+        return !!gameFrozen || this.localWorldFrozen || WorldFreezeController.isFrozen();
+    },
+
+    takeDamage(enemy) {
+        if (this.isDying || this.isTransforming || this.damageBlinkDuration > 0 || this.localWorldFrozen) {
+            return;
+        }
+
+        this.pendingDamageEnemy = enemy || null;
+
+        if (this.currentForm === 'big') {
+            this.playSfx(this.damageSfx);
+            this.shrinkToSmall(enemy);
+            return;
+        }
+
+        this.deathLockX = this.node.x;
+        this.deathStartY = this.node.y;
+        this.deathHoldPosition = true;
+        this.node.setPosition(this.deathLockX, this.deathStartY);
+
+        if (this.body) {
+            this.body.linearVelocity = cc.v2(0, 0);
+            this.body.angularVelocity = 0;
+            this.body.gravityScale = 0;
+            this.body.awake = true;
+        }
+
+        if (this.game && this.game.loseLife) {
+            this.game.loseLife();
+            return;
+        }
+
+        this.localWorldFrozen = true;
+        this.cachePhysicsGravity();
+        this.pausePhysics();
+        this.enableControl(false);
+        this.beginDamageBlink(this.freezeDuration);
+
+        this.scheduleOnce(() => {
+            this.resumePhysics();
+            this.localWorldFrozen = false;
+            this.enableControl(true);
+            WorldFreezeController.reset();
+
+            if (this.body) {
+                this.body.awake = true;
+            }
+
+            this.bumpPendingDamageEnemy();
+        }, this.freezeDuration);
+    },
+
+    bumpPendingDamageEnemy() {
+        if (!this.pendingDamageEnemy || !this.pendingDamageEnemy.node || !cc.isValid(this.pendingDamageEnemy.node)) {
+            this.pendingDamageEnemy = null;
+            return;
+        }
+
+        this.bumpDamagingEnemy(this.pendingDamageEnemy);
+        this.pendingDamageEnemy = null;
+    },
+
+    bumpDamagingEnemy(enemy) {
+        if (!enemy || !enemy.reverseDirection || !enemy.node || !cc.isValid(enemy.node)) {
+            return;
+        }
+
+        enemy.reverseDirection(true);
+
+        const moveDir = enemy.moveDirection || (enemy.node.x >= this.node.x ? 1 : -1);
+        enemy.node.setPosition(enemy.node.x + (moveDir * 18), enemy.node.y);
+
+        if (enemy.body) {
+            if (enemy.body.syncPosition) {
+                enemy.body.syncPosition(false);
+            }
+            enemy.body.awake = true;
+            enemy.body.linearVelocity = cc.v2(
+                moveDir * (enemy.shellSpeed || enemy.moveSpeed || 0),
+                enemy.body.linearVelocity.y
+            );
+        }
+    },
+
+    cachePhysicsGravity() {
+        const physicsManager = cc.director.getPhysicsManager();
+        if (physicsManager && physicsManager.gravity) {
+            this.cachedGravity = physicsManager.gravity.clone ? physicsManager.gravity.clone() : cc.v2(physicsManager.gravity.x, physicsManager.gravity.y);
+        }
+    },
+
+    pausePhysics() {
+        const physicsManager = cc.director.getPhysicsManager();
+        if (physicsManager) {
+            physicsManager.enabled = false;
+        }
+    },
+
+    resumePhysics() {
+        const physicsManager = cc.director.getPhysicsManager();
+        if (physicsManager) {
+            physicsManager.enabled = true;
+            physicsManager.gravity = this.cachedGravity || cc.v2(0, -2000);
+        }
+    },
+
+    beginDamageBlink(duration) {
+        this.damageBlinkTimer = 0;
+        this.damageBlinkDuration = duration;
+        this.blinkVisible = false;
+        this.setSpriteVisible(false);
+    },
+
+    updateDamageBlink(dt) {
+        if (!this.sprite || this.damageBlinkDuration <= 0 || this.isTransforming) {
+            return;
+        }
+
+        this.damageBlinkTimer += dt;
+        const shouldShow = Math.floor(this.damageBlinkTimer * 12) % 2 === 0;
+        if (shouldShow !== this.blinkVisible) {
+            this.blinkVisible = shouldShow;
+            this.setSpriteVisible(shouldShow);
+        }
+
+        if (this.damageBlinkTimer >= this.damageBlinkDuration) {
+            this.damageBlinkTimer = 0;
+            this.damageBlinkDuration = 0;
+            this.blinkVisible = true;
+            this.setSpriteVisible(true);
+        }
+    },
+
+    setSpriteVisible(visible) {
+        if (this.sprite) {
+            this.sprite.enabled = visible;
+        }
+    },
+
+    onKeyDown(event) {
+        if (!this.controlEnabled) {
+            return;
+        }
+
+        switch (event.keyCode) {
+            case cc.macro.KEY.a:
+            case cc.macro.KEY.left:
+                this.keys.left = true;
+                break;
+            case cc.macro.KEY.d:
+            case cc.macro.KEY.right:
+                this.keys.right = true;
+                break;
+            case cc.macro.KEY.w:
+            case cc.macro.KEY.up:
+                this.tryJump();
+                break;
+            default:
+                break;
+        }
+    },
+
+    onKeyUp(event) {
+        switch (event.keyCode) {
+            case cc.macro.KEY.a:
+            case cc.macro.KEY.left:
+                this.keys.left = false;
+                break;
+            case cc.macro.KEY.d:
+            case cc.macro.KEY.right:
+                this.keys.right = false;
+                break;
+            default:
+                break;
+        }
+    },
+
+    tryJump() {
+        if (!this.body || !this.onGround) {
+            return;
+        }
+
+        this.playSfx(this.jumpSfx);
+        this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, this.jumpSpeed);
+        this.groundContacts = 0;
+        this.groundContactIds.clear();
+        this.onGround = false;
+    },
+
+    isGroundContact(contact) {
+        if (!contact || !contact.getWorldManifold) {
+            return false;
+        }
+
+        const manifold = contact.getWorldManifold();
+        const normal = manifold ? manifold.normal : null;
+        return !!normal && normal.y < -0.4;
+    },
+
+    configureColliderPhysics() {
+        if (!this.boxCollider) {
+            return;
+        }
+
+        if (typeof this.boxCollider.friction === 'number' && this.boxCollider.friction !== 0) {
+            this.boxCollider.friction = 0;
+            if (this.boxCollider.apply) {
+                this.boxCollider.apply();
+            }
+        }
+    },
+
+    onBeginContact(contact, selfCollider, otherCollider) {
+        const otherNode = otherCollider.node;
+        const goomba = otherNode.getComponent(GoombaController);
+        const turtle = otherNode.getComponent(TurtleController);
+        const flower = otherNode.getComponent(FlowerController);
+        const goal = otherNode.getComponent(GoalPole);
+        const oneWayPlatform = otherNode.getComponent(OneWayPlatform);
+
+        if (turtle) {
+            const falling = this.body && this.body.linearVelocity.y < -10;
+            const normal = contact.getWorldManifold().normal;
+            const stompedFromAbove = normal.y < -0.3;
+
+            if (stompedFromAbove && (falling || turtle.state !== 'walking')) {
+                const stompResult = turtle.onPlayerStomp ? turtle.onPlayerStomp() : null;
+                if (this.body) {
+                    this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, this.jumpSpeed * 0.55);
+                }
+                if (stompResult && stompResult.defeatedEnemy && this.game) {
+                    this.game.stompEnemy(turtle.node);
+                }
+            } else {
+                const sideResult = turtle.onPlayerSideContact ? turtle.onPlayerSideContact(this.node, normal) : 'damage';
+                if (sideResult === 'kick' && this.game && this.game.kickShell) {
+                    this.game.kickShell(turtle.node);
+                } else if (sideResult === 'damage') {
+                    this.takeDamage(turtle);
+                }
+            }
+            return;
+        }
+
+        if (goomba) {
+            const falling = this.body && this.body.linearVelocity.y < -10;
+            const normal = contact.getWorldManifold().normal;
+            const stompedFromAbove = normal.y < -0.3;
+
+            if (falling && stompedFromAbove) {
+                this.playSfx(this.stompSfx);
+                goomba.stomp();
+                this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, this.jumpSpeed * 0.55);
+                if (this.game) {
+                    this.game.stompEnemy(goomba.node);
+                }
+            } else {
+                this.takeDamage(goomba);
+            }
+            return;
+        }
+
+        if (flower) {
+            this.takeDamage(flower);
+            return;
+        }
+
+        if (oneWayPlatform) {
+            this.oneWayContacts.set(this.getContactId(otherCollider), {
+                collider: otherCollider,
+                platform: oneWayPlatform
+            });
+            return;
+        }
+
+        if (goal) {
+            const justTriggered = goal.triggerGoal ? goal.triggerGoal() : true;
+            if (justTriggered && this.game) {
+                this.game.clearLevel();
+            }
+            return;
+        }
+
+        const bumpSource = this.getBumpSource(otherNode);
+        if (bumpSource) {
+            if (this.isBlockHitFromBelow(contact, bumpSource.node)) {
+                bumpSource.tryActivateFromBelow();
+            }
+        }
+
+        if (otherCollider && !otherCollider.sensor && this.isGroundContact(contact)) {
+            const contactId = this.getContactId(otherCollider);
+            this.groundContactIds.add(contactId);
+            this.groundContacts = this.groundContactIds.size;
+            this.onGround = true;
+        }
+
+    },
+
+    onEndContact(contact, selfCollider, otherCollider) {
+        const otherNode = otherCollider.node;
+        const goomba = otherNode.getComponent(GoombaController);
+        const turtle = otherNode.getComponent(TurtleController);
+        const flower = otherNode.getComponent(FlowerController);
+        const goal = otherNode.getComponent(GoalPole);
+        const oneWayPlatform = otherNode.getComponent(OneWayPlatform);
+        if (goomba || turtle || flower || goal) {
+            return;
+        }
+
+        if (oneWayPlatform) {
+            const contactId = this.getContactId(otherCollider);
+            this.oneWayContacts.delete(contactId);
+            if (this.activeOneWayGroundId === contactId) {
+                this.activeOneWayGroundId = null;
+            }
+            return;
+        }
+
+        if (otherCollider && !otherCollider.sensor && this.isGroundContact(contact)) {
+            const contactId = this.getContactId(otherCollider);
+            this.groundContactIds.delete(contactId);
+            this.groundContacts = this.groundContactIds.size;
+            this.onGround = this.groundContactIds.size > 0;
+        }
+    },
+
+    updateAnimation(actualSpeedX) {
+        if (!this.sprite) {
+            return;
+        }
+
+        if (!this.onGround) {
+            this.updateJumpAnimation();
+            return;
+        }
+
+        this.updateRunAnimation(actualSpeedX);
+    },
+
+    updateRunAnimation(actualSpeedX) {
+        const runFrames = this.getRunFramesForCurrentForm();
+        if (runFrames.length === 0) {
+            return;
+        }
+
+        if (Math.abs(actualSpeedX) < 5) {
+            this.frameTimer = 0;
+            this.frameIndex = 0;
+            this.sprite.spriteFrame = runFrames[0];
+            return;
+        }
+
+        this.frameTimer += cc.director.getDeltaTime();
+        if (this.frameTimer < this.frameInterval) {
+            return;
+        }
+
+        this.frameTimer = 0;
+        this.frameIndex = (this.frameIndex + 1) % runFrames.length;
+        this.sprite.spriteFrame = runFrames[this.frameIndex];
+    },
+
+    updateJumpAnimation() {
+        const jumpFrames = this.getJumpFramesForCurrentForm();
+        if (!this.body || jumpFrames.length === 0) {
+            return;
+        }
+
+        const vy = this.body.linearVelocity.y;
+
+        if (jumpFrames.length === 1) {
+            this.sprite.spriteFrame = jumpFrames[0];
+            return;
+        }
+
+        if (jumpFrames.length === 2) {
+            this.sprite.spriteFrame = vy >= 0 ? jumpFrames[0] : jumpFrames[1];
+            return;
+        }
+
+        if (vy > 30) {
+            this.sprite.spriteFrame = jumpFrames[0];
+        } else if (vy < -30) {
+            this.sprite.spriteFrame = jumpFrames[2];
+        } else {
+            this.sprite.spriteFrame = jumpFrames[1];
+        }
+    },
+
+    getContactId(collider) {
+        const nodeId = collider && collider.node ? collider.node.uuid : 'unknown-node';
+        const tag = collider ? collider.tag : 'unknown-tag';
+        return `${nodeId}:${tag}`;
+    },
+
+    getBumpSource(node) {
+        let current = node;
+
+        while (current) {
+            const rewardSource = current.getComponent('RewardSource');
+            if (rewardSource) {
+                return rewardSource;
+            }
+
+            const bumpBlock = current.getComponent('BlockBump');
+            if (bumpBlock) {
+                return bumpBlock;
+            }
+            current = current.parent;
+        }
+
+        return null;
+    },
+
+    isBlockHitFromBelow(contact, blockNode) {
+        if (!contact || !blockNode) {
+            return false;
+        }
+
+        const normal = contact.getWorldManifold().normal;
+        if (Math.abs(normal.y) < 0.2) {
+            return false;
+        }
+
+        const playerWorld = this.node.convertToWorldSpaceAR ? this.node.convertToWorldSpaceAR(cc.v2(0, 0)) : cc.v2(this.node.x, this.node.y);
+        const blockWorld = blockNode.convertToWorldSpaceAR ? blockNode.convertToWorldSpaceAR(cc.v2(0, 0)) : cc.v2(blockNode.x, blockNode.y);
+        return playerWorld.y < blockWorld.y;
+    },
+
+    growBig() {
+        if (this.isTransforming || this.currentForm === 'big') {
+            return;
+        }
+
+        this.playSfx(this.powerUpSfx);
+        this.isTransforming = true;
+        this.transformElapsed = 0;
+        this.transformPreviewForm = 'small';
+        this.enableControl(false);
+        this.cachePhysicsGravity();
+        this.pausePhysics();
+        WorldFreezeController.begin();
+        this.startedWorldFreeze = true;
+        this.localWorldFrozen = true;
+
+        if (this.body) {
+            this.body.linearVelocity = cc.v2(0, 0);
+            this.body.angularVelocity = 0;
+        }
+
+        this.applyForm('small', false);
+        this.scheduleOnce(this.finishGrowBig.bind(this), this.transformDuration);
+    },
+
+    finishGrowBig() {
+        this.isTransforming = false;
+        this.transformElapsed = 0;
+        this.transformPreviewForm = 'big';
+        this.resumePhysics();
+        this.scheduleOnce(() => {
+            this.applyForm('big', true);
+
+            if (this.body) {
+                this.body.awake = true;
+            }
+
+            this.localWorldFrozen = false;
+            WorldFreezeController.reset();
+            this.startedWorldFreeze = false;
+            this.enableControl(true);
+        }, 0);
+    },
+
+    shrinkToSmall(enemy) {
+        if (this.isTransforming || this.currentForm !== 'big') {
+            return;
+        }
+
+        this.isTransforming = true;
+        this.transformElapsed = 0;
+        this.transformPreviewForm = 'big';
+        this.enableControl(false);
+        this.cachePhysicsGravity();
+        this.pausePhysics();
+        WorldFreezeController.begin();
+        this.startedWorldFreeze = true;
+        this.localWorldFrozen = true;
+
+        if (this.body) {
+            this.body.linearVelocity = cc.v2(0, 0);
+            this.body.angularVelocity = 0;
+        }
+
+        this.applyForm('big', false);
+        this.scheduleOnce(this.finishShrinkSmall.bind(this), this.transformDuration);
+    },
+
+    finishShrinkSmall() {
+        this.isTransforming = false;
+        this.transformElapsed = 0;
+        this.transformPreviewForm = 'small';
+        this.resumePhysics();
+        this.scheduleOnce(() => {
+            this.applyForm('small', true);
+            this.beginDamageBlink(this.freezeDuration);
+
+            if (this.body) {
+                this.body.awake = true;
+            }
+
+            this.localWorldFrozen = false;
+            WorldFreezeController.reset();
+            this.startedWorldFreeze = false;
+            this.enableControl(true);
+            this.bumpPendingDamageEnemy();
+        }, 0);
+    },
+
+    updateTransformBlink(dt) {
+        if (!this.isTransforming) {
+            return;
+        }
+
+        this.transformElapsed += dt;
+        const blinkStep = Math.floor(this.transformElapsed / Math.max(this.transformBlinkInterval, 0.01));
+        const nextForm = blinkStep % 2 === 0 ? 'small' : 'big';
+        if (nextForm === this.transformPreviewForm) {
+            return;
+        }
+
+        this.transformPreviewForm = nextForm;
+        this.applyForm(nextForm, true);
+    },
+
+    getCurrentWorldBounds() {
+        return this.currentWorldBounds || this.node.getBoundingBoxToWorld();
+    },
+
+    getPreviousWorldBounds() {
+        return this.previousWorldBounds || this.getCurrentWorldBounds();
+    },
+
+    cloneRect(rect) {
+        return cc.rect(rect.x, rect.y, rect.width, rect.height);
+    },
+
+    cloneSize(size) {
+        return cc.size(size.width, size.height);
+    },
+
+    cloneVec2(vec) {
+        return cc.v2(vec.x, vec.y);
+    },
+
+    getRunFramesForCurrentForm() {
+        if (this.currentForm === 'big' && this.bigRunFrames.length > 0) {
+            return this.bigRunFrames;
+        }
+
+        return this.runFrames;
+    },
+
+    getJumpFramesForCurrentForm() {
+        if (this.currentForm === 'big' && this.bigJumpFrames.length > 0) {
+            return this.bigJumpFrames;
+        }
+
+        return this.jumpFrames;
+    },
+
+    getConfiguredBigVisualSize() {
+        if (this.bigVisualSize.width > 0 && this.bigVisualSize.height > 0) {
+            return this.cloneSize(this.bigVisualSize);
+        }
+
+        const fallbackFrame = this.bigRunFrames[0] || this.bigJumpFrames[0];
+        if (fallbackFrame) {
+            const rawSize = fallbackFrame.getOriginalSize ? fallbackFrame.getOriginalSize() : null;
+            if (rawSize && rawSize.width > 0 && rawSize.height > 0) {
+                return this.cloneSize(rawSize);
+            }
+        }
+
+        return this.cloneSize(this.smallVisualSize);
+    },
+
+    getConfiguredBigColliderSize() {
+        if (this.bigColliderSize.width > 0 && this.bigColliderSize.height > 0) {
+            return this.cloneSize(this.bigColliderSize);
+        }
+
+        const smallVisualSize = this.smallVisualSize;
+        const bigVisualSize = this.getConfiguredBigVisualSize();
+        const widthRatio = smallVisualSize.width > 0 ? bigVisualSize.width / smallVisualSize.width : 1;
+        const heightRatio = smallVisualSize.height > 0 ? bigVisualSize.height / smallVisualSize.height : 1;
+
+        return cc.size(
+            this.smallColliderSize.width * widthRatio,
+            this.smallColliderSize.height * heightRatio
+        );
+    },
+
+    getConfiguredBigColliderOffset() {
+        if (this.bigColliderOffset.x !== 0 || this.bigColliderOffset.y !== 0) {
+            return this.cloneVec2(this.bigColliderOffset);
+        }
+
+        const bigColliderSize = this.getConfiguredBigColliderSize();
+        const smallBottom = this.smallColliderOffset.y - (this.smallColliderSize.height * 0.5);
+        return cc.v2(
+            this.smallColliderOffset.x,
+            smallBottom + (bigColliderSize.height * 0.5)
+        );
+    },
+
+    getFormVisualSize(formName) {
+        return formName === 'big' ? this.getConfiguredBigVisualSize() : this.cloneSize(this.smallVisualSize);
+    },
+
+    getFormColliderSize(formName) {
+        return formName === 'big' ? this.getConfiguredBigColliderSize() : this.cloneSize(this.smallColliderSize);
+    },
+
+    getFormColliderOffset(formName) {
+        return formName === 'big' ? this.getConfiguredBigColliderOffset() : this.cloneVec2(this.smallColliderOffset);
+    },
+
+    getFormBottomLocal(formName) {
+        if (this.boxCollider) {
+            const size = this.getFormColliderSize(formName);
+            const offset = this.getFormColliderOffset(formName);
+            return offset.y - (size.height * 0.5);
+        }
+
+        const visualSize = this.getFormVisualSize(formName);
+        return -visualSize.height * 0.5;
+    },
+
+    applyForm(formName, keepFeetPosition) {
+        const previousForm = this.currentForm;
+        const previousBottom = this.getFormBottomLocal(previousForm);
+        const targetBottom = this.getFormBottomLocal(formName);
+        const visualSize = this.getFormVisualSize(formName);
+        const colliderSize = this.getFormColliderSize(formName);
+        const colliderOffset = this.getFormColliderOffset(formName);
+
+        this.currentForm = formName;
+
+        if (keepFeetPosition) {
+            this.node.y += previousBottom - targetBottom;
+        }
+
+        this.node.setContentSize(visualSize);
+        this.node.width = visualSize.width;
+        this.node.height = visualSize.height;
+
+        if (this.sprite) {
+            this.sprite.sizeMode = cc.Sprite.SizeMode.CUSTOM;
+        }
+
+        if (this.boxCollider) {
+            this.boxCollider.size = cc.size(colliderSize.width, colliderSize.height);
+            this.boxCollider.offset = cc.v2(colliderOffset.x, colliderOffset.y);
+            this.boxCollider.apply();
+        }
+
+        if (this.body) {
+            this.body.awake = true;
+        }
+
+        this.frameTimer = 0;
+        this.frameIndex = 0;
+        this.refreshCurrentFrame(false);
+        this.currentWorldBounds = this.node.getBoundingBoxToWorld();
+        this.previousWorldBounds = this.cloneRect(this.currentWorldBounds);
+    },
+
+    refreshCurrentFrame(forceIdle) {
+        if (!this.sprite) {
+            return;
+        }
+
+        const runFrames = this.getRunFramesForCurrentForm();
+        if (forceIdle || !this.body || this.onGround) {
+            if (runFrames.length > 0) {
+                this.sprite.spriteFrame = runFrames[0];
+            }
+            return;
+        }
+
+        this.updateJumpAnimation();
+    },
+
+    resolveOneWayPlatformSupport() {
+        this.activeOneWayGroundId = null;
+
+        if (!this.body || this.oneWayContacts.size === 0) {
+            return;
+        }
+
+        const currentBounds = this.getCurrentWorldBounds();
+        const previousBounds = this.getPreviousWorldBounds();
+        const velocityY = this.body.linearVelocity ? this.body.linearVelocity.y : 0;
+
+        if (velocityY > 0) {
+            return;
+        }
+
+        let support = null;
+        let highestTop = -Infinity;
+
+        for (const [contactId, data] of this.oneWayContacts.entries()) {
+            if (!data || !data.platform || !data.platform.node || !cc.isValid(data.platform.node)) {
+                continue;
+            }
+
+            const platformBounds = data.platform.getPlatformBounds
+                ? data.platform.getPlatformBounds()
+                : data.collider.node.getBoundingBoxToWorld();
+            const platformTop = platformBounds.y + platformBounds.height;
+            const horizontalOverlap =
+                currentBounds.x + currentBounds.width > platformBounds.x + data.platform.sidePassPadding &&
+                currentBounds.x < platformBounds.x + platformBounds.width - data.platform.sidePassPadding;
+            const wasAbovePlatform = previousBounds.y >= platformTop - data.platform.topSurfacePadding;
+            const reachedPlatformTop = currentBounds.y <= platformTop + data.platform.topSurfacePadding;
+
+            if (!horizontalOverlap || !wasAbovePlatform || !reachedPlatformTop) {
+                continue;
+            }
+
+            if (platformTop > highestTop) {
+                highestTop = platformTop;
+                support = {
+                    contactId,
+                    top: platformTop
+                };
+            }
+        }
+
+        if (!support) {
+            return;
+        }
+
+        this.node.y += support.top - currentBounds.y;
+        this.body.linearVelocity = cc.v2(this.body.linearVelocity.x, 0);
+        this.currentWorldBounds = this.node.getBoundingBoxToWorld();
+        this.activeOneWayGroundId = support.contactId;
+    },
+
+    playDeathAnimation(onComplete) {
+        if (this.isDying) {
+            return;
+        }
+
+        this.isDying = true;
+        this.localWorldFrozen = true;
+        this.enableControl(false);
+        this.setSpriteVisible(true);
+        this.damageBlinkTimer = 0;
+        this.damageBlinkDuration = 0;
+        this.blinkVisible = true;
+        this.groundContacts = 0;
+        this.groundContactIds.clear();
+        this.onGround = false;
+        this.oneWayContacts.clear();
+        this.activeOneWayGroundId = null;
+        if (typeof this.deathLockX !== 'number') {
+            this.deathLockX = this.node.x;
+        }
+        if (typeof this.deathStartY !== 'number') {
+            this.deathStartY = this.node.y;
+        }
+        this.deathHoldPosition = true;
+        this.node.setPosition(this.deathLockX, this.deathStartY);
+
+        if (this.currentForm !== 'small') {
+            this.applyForm('small', true);
+        }
+
+        const deathFrame = this.getDeathSpriteFrame();
+        if (this.sprite && deathFrame) {
+            this.sprite.spriteFrame = deathFrame;
+        }
+
+        this.playSfx(this.deathSfx, this.deathSfxVolume);
+
+        if (this.body) {
+            this.body.linearVelocity = cc.v2(0, 0);
+            this.body.angularVelocity = 0;
+            this.body.enabledContactListener = false;
+            this.body.enabled = false;
+        }
+
+        const colliders = this.node.getComponents(cc.PhysicsCollider);
+        for (let i = 0; i < colliders.length; i += 1) {
+            colliders[i].enabled = false;
+        }
+
+        this.node.stopAllActions();
+        this.node.runAction(
+            cc.sequence(
+                cc.delayTime(this.deathPauseDuration),
+                cc.callFunc(() => {
+                    this.node.setPosition(this.deathLockX, this.deathStartY);
+                    this.deathHoldPosition = false;
+                }),
+                cc.moveTo(this.deathRiseDuration, this.deathLockX, this.deathStartY + this.deathRiseHeight).easing(cc.easeCubicActionOut()),
+                cc.moveTo(this.deathFallDuration, this.deathLockX, this.deathStartY - this.deathFallOffset).easing(cc.easeCubicActionIn()),
+                cc.delayTime(0.12),
+                cc.callFunc(() => {
+                    this.deathLockX = null;
+                    this.deathStartY = null;
+                    this.deathHoldPosition = false;
+                    if (onComplete) {
+                        onComplete();
+                    }
+                })
+            )
+        );
+    },
+
+    getDeathSpriteFrame() {
+        if (this.deathSpriteFrame) {
+            return this.deathSpriteFrame;
+        }
+
+        if (this.sprite && this.sprite._atlas && this.sprite._atlas.getSpriteFrame) {
+            return this.sprite._atlas.getSpriteFrame('mario_small_18.png')
+                || this.sprite._atlas.getSpriteFrame('mario_small_22.png')
+                || this.sprite._atlas.getSpriteFrame('mario_small_15.png');
+        }
+
+        return this.jumpFrames[0] || this.runFrames[0] || null;
+    },
+
+    playSfx(clip, volume) {
+        if (!clip) {
+            return;
+        }
+
+        const audioId = cc.audioEngine.playEffect(clip, false);
+        if (typeof volume === 'number' && Number.isFinite(volume)) {
+            cc.audioEngine.setVolume(audioId, Math.max(0, volume));
+        }
+    }
+});
